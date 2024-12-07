@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>隨機分組對戰</title>
+  <style>
+    .container {
+      margin: 20px;
+    }
+
+    #result {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h3>選擇球員並新增新球員</h3>
+    <form id="playersForm">
+      <div id="player-list">
+        <label><input type="checkbox" id="player1" value="博翰" checked> 博翰</label><br>
+        <label><input type="checkbox" id="player2" value="士賢" checked> 士賢</label><br>
+        <label><input type="checkbox" id="player3" value="瑞文" checked> 瑞文</label><br>
+        <label><input type="checkbox" id="player4" value="文凱" checked> 文凱</label><br>
+        <label><input type="checkbox" id="player5" value="楊偉" checked> 楊偉</label><br>
+        <label><input type="checkbox" id="player6" value="同偉" checked> 同偉</label><br>
+        <label><input type="checkbox" id="player7" value="家威" checked> 家威</label><br>
+        <label><input type="checkbox" id="player8" value="學長" checked> 學長</label><br>
+        <label><input type="checkbox" id="player9" value="學姊" checked> 學姊</label><br>
+        <label><input type="checkbox" id="player10" value="國豐" checked> 國豐</label><br>
+      </div>
+      <label>新增球員：</label>
+      <input type="text" id="newPlayer" placeholder="輸入新球員名稱">
+      <button type="button" onclick="addPlayer()">新增</button>
+    </form>
+    <button type="button" onclick="generateTeams()">隨機分組</button>
+    <div id="result"></div>
+  </div>
+
+  <script>
+
+    // 新增球員並生成核取方塊
+    function addPlayer() {
+      const input = document.getElementById('newPlayer').value.trim();
+      if (!input) return;
+
+      const names = input.split(',').map(name => name.trim()).filter(name => name);
+      const playerList = document.getElementById('player-list');
+
+      names.forEach(name => {
+        const label = document.createElement('label');
+        label.innerHTML = `<input type="checkbox" value="${name}" checked> ${name}`;
+        playerList.appendChild(label);
+        playerList.appendChild(document.createElement('br'));
+      });
+
+      document.getElementById('newPlayer').value = '';
+    }
+
+    // 隨機分組邏輯
+    function generateTeams() {
+      const checkboxes = document.querySelectorAll('#player-list input[type="checkbox"]:checked');
+      let players = Array.from(checkboxes).map(checkbox => checkbox.value);
+
+      // 擷取選中的球員
+      const selectedPlayers = [...players];
+      /*for (let i = 1; i <= players.length; i++) {
+        const checkbox = document.getElementById('player' + i);
+        if (checkbox.checked) {
+          selectedPlayers.push(players[i - 1]);
+        }
+      }*/
+
+      // 隨機排序選中的球員
+      shuffleArray(selectedPlayers);
+
+      // 產生分組
+      const teams = [];
+      let groupCount = Math.floor(selectedPlayers.length / 2);
+
+      // 分組
+      for (let i = 0; i < groupCount * 2; i += 2) {
+        teams.push([selectedPlayers[i], selectedPlayers[i + 1]]);
+      }
+
+      // 處理奇數情況
+      if (selectedPlayers.length % 2 !== 0) {
+        // 如果是奇數，抽選一名落單球員
+        const unpairedPlayer = selectedPlayers[groupCount * 2];
+        // 從剩下的球員中隨機選擇一位
+        const remainingPlayers = [...selectedPlayers];
+        remainingPlayers.splice(groupCount * 2, 1); // 移除已經選定的球員
+        const randomIndex = Math.floor(Math.random() * remainingPlayers.length);
+        const pairedPlayer = remainingPlayers[randomIndex];
+
+        // 新增一組由兩個球員組成
+        teams.push([unpairedPlayer, pairedPlayer]);
+        groupCount++; // 總組數增加
+      }
+
+      // 檢查總隊伍數量是否為奇數，如果是則從前面的偶數隊伍中抽選兩名球員來形成新隊伍
+      if (teams.length % 2 !== 0) {
+        // 從已分配的偶數隊伍中抽取兩名球員
+        const playersFromGroups = [];
+        for (let i = 0; i < teams.length - 1; i++) {
+          playersFromGroups.push(...teams[i]);
+        }
+
+        // 最後一支隊伍的成員
+        const lastTeam = teams[teams.length - 1];
+
+        // 從已分配的球員中隨機選擇兩位來形成新隊伍，並且排除已存在的成員
+        let randomIndexes = [];
+        let newTeam = [];
+
+        while (randomIndexes.length < 2) {
+          const randIndex = Math.floor(Math.random() * playersFromGroups.length);
+
+          // 確保選中的球員不在最後一支隊伍中
+          if (!randomIndexes.includes(randIndex) && !lastTeam.includes(playersFromGroups[randIndex])) {
+            randomIndexes.push(randIndex);
+            newTeam.push(playersFromGroups[randIndex]);
+          }
+        }
+
+        // 將新隊伍加入到隊伍中
+        teams.push(newTeam);
+      }
+
+      // 顯示分組結果
+      displayResults(teams);
+    }
+
+    // 顯示分組結果
+    function displayResults(teams) {
+      let resultHtml = '';
+      let groupIndex = 1;
+      for (let i = 0; i < teams.length; i++) {
+        resultHtml += `<p>組合 ${groupIndex++}: ${teams[i].join(' 跟 ')}</p>`;
+      }
+      document.getElementById('result').innerHTML = resultHtml;
+    }
+
+    // 隨機打亂數組
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+  </script>
+</body>
+
+</html>
