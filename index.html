@@ -34,6 +34,10 @@
               value="學姊" checked> 學姊</label></div>
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player10"
               value="國鋒" checked> 國鋒</label></div>
+        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player11"
+              value="阿呆" checked> 阿呆</label></div>
+        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player12"
+              value="煥呈" checked> 煥呈</label></div>
       </div>
       <div class="mb-3">
         <label for="newPlayer" class="form-label">新增球員：</label>
@@ -72,69 +76,24 @@
       const checkboxes = document.querySelectorAll('#player-list input[type="checkbox"]:checked');
       let players = Array.from(checkboxes).map(checkbox => checkbox.value);
 
-      // 擷取選中的球員
-      const selectedPlayers = [...players];
-      /*for (let i = 1; i <= players.length; i++) {
-        const checkbox = document.getElementById('player' + i);
-        if (checkbox.checked) {
-          selectedPlayers.push(players[i - 1]);
+      shuffleArray(players)
+
+      var teams = []
+      var unusedPlayers = []
+      for (let i = 0; i < players.length; i += 4) {
+        var chunk = players.slice(i, i + 4)
+        if (chunk.length == 4) {
+          teams.push(chunk);
+        } else {
+          unusedPlayers.push(...chunk);
         }
-      }*/
-
-      // 隨機排序選中的球員
-      shuffleArray(selectedPlayers);
-
-      // 產生分組
-      const teams = [];
-      let groupCount = Math.floor(selectedPlayers.length / 2);
-
-      // 分組
-      for (let i = 0; i < groupCount * 2; i += 2) {
-        teams.push([selectedPlayers[i], selectedPlayers[i + 1]]);
       }
 
-      // 處理奇數情況
-      if (selectedPlayers.length % 2 !== 0) {
-        // 如果是奇數，抽選一名落單球員
-        const unpairedPlayer = selectedPlayers[groupCount * 2];
-        // 從剩下的球員中隨機選擇一位
-        const remainingPlayers = [...selectedPlayers];
-        remainingPlayers.splice(groupCount * 2, 1); // 移除已經選定的球員
-        const randomIndex = Math.floor(Math.random() * remainingPlayers.length);
-        const pairedPlayer = remainingPlayers[randomIndex];
-
-        // 新增一組由兩個球員組成
-        teams.push([unpairedPlayer, pairedPlayer]);
-        groupCount++; // 總組數增加
-      }
-
-      // 檢查總隊伍數量是否為奇數，如果是則從前面的偶數隊伍中抽選兩名球員來形成新隊伍
-      if (teams.length % 2 !== 0) {
-        // 從已分配的偶數隊伍中抽取兩名球員
-        const playersFromGroups = [];
-        for (let i = 0; i < teams.length - 1; i++) {
-          playersFromGroups.push(...teams[i]);
-        }
-
-        // 最後一支隊伍的成員
-        const lastTeam = teams[teams.length - 1];
-
-        // 從已分配的球員中隨機選擇兩位來形成新隊伍，並且排除已存在的成員
-        let randomIndexes = [];
-        let newTeam = [];
-
-        while (randomIndexes.length < 2) {
-          const randIndex = Math.floor(Math.random() * playersFromGroups.length);
-
-          // 確保選中的球員不在最後一支隊伍中
-          if (!randomIndexes.includes(randIndex) && !lastTeam.includes(playersFromGroups[randIndex])) {
-            randomIndexes.push(randIndex);
-            newTeam.push(playersFromGroups[randIndex]);
-          }
-        }
-
-        // 將新隊伍加入到隊伍中
-        teams.push(newTeam);
+      if (players.length % 4 != 0) {
+        var usedPlayers = teams.flat()
+        shuffleArray(usedPlayers)
+        unusedPlayers.push(...usedPlayers)
+        teams.push(unusedPlayers.slice(0, 4))
       }
 
       // 顯示分組結果
@@ -146,7 +105,7 @@
       let resultHtml = '';
       let groupIndex = 1;
       for (let i = 0; i < teams.length; i++) {
-        resultHtml += `<p>組合 ${groupIndex++}: ${teams[i].join(' 跟 ')}</p>`;
+        resultHtml += `<p>組合 ${groupIndex++}: ${teams[i].slice(0, 2).join(' 跟 ')} 對 組合 ${groupIndex++}: ${teams[i].slice(2, 4).join(' 跟 ')}</p>`;
       }
       document.getElementById('result').innerHTML = resultHtml;
     }
