@@ -135,7 +135,20 @@
       const checkboxes = document.querySelectorAll('#player-list input.player:checked');
       let players = Array.from(checkboxes).map(checkbox => checkbox.value);
 
+      const priorityCheckboxes = document.querySelectorAll('#player-list input.check-red:checked');
+      let priorityPlayers = Array.from(priorityCheckboxes).map(checkbox => checkbox.value);
+
+      // 剔除不在選中球員中的優先球員
+      priorityPlayers = priorityPlayers.filter(p => players.includes(p));
+
+      // 優先球員洗牌
+      shuffleArray(priorityPlayers)
+
+      // 非優先球員洗牌
       shuffleArray(players)
+
+      // 將優先球員放在前面
+      players = priorityPlayers.concat(players.filter(p => !priorityPlayers.includes(p)));
 
       var teams = []
       var unusedPlayers = []
