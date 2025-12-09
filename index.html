@@ -31,7 +31,7 @@
             自動優先</label>
           </div>
           <div class="col">
-            <label class="form-check-label"><input type="checkbox" class="form-check-input check-green" id="autoPriority" checked>
+            <label class="form-check-label"><input type="checkbox" class="form-check-input check-green" id="noBindCheck" checked>
             優先不必同組</label>
           </div>
           <div class="col">
@@ -178,6 +178,14 @@
 
       // 將優先球員放在前面
       players = priorityPlayers.concat(players.filter(p => !priorityPlayers.includes(p)));
+
+      const noBind = document.getElementById('noBindCheck').checked;
+      if (noBind) {
+        // 前4個球員再次洗牌以避免優先同組
+        const firstFour = players.slice(0, 4);
+        shuffleArray(firstFour);
+        players = firstFour.concat(players.slice(4));
+      }
 
       var teams = []
       var unusedPlayers = []
