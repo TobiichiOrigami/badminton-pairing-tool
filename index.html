@@ -13,6 +13,12 @@
   <div class="container my-4">
     <h3 class="text-center mb-4">選擇球員並新增新球員</h3>
     <form id="playersForm">
+      <div class="mb-3">
+        <label for="newPlayer" class="form-label">新增球員：</label>
+        <input type="text" id="newPlayer" class="form-control" placeholder="輸入新球員名稱">
+      </div>
+      <button type="button" class="btn btn-primary mb-3" onclick="addPlayer()">新增</button>
+
       <div id="player-list" class="mb-3 row row-cols-1 row-cols-sm-2 row-cols-md-3 g-2">
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player1"
               value="博翰" checked> 博翰</label></div>
@@ -39,11 +45,6 @@
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player12"
               value="煥呈" checked> 煥呈</label></div>
       </div>
-      <div class="mb-3">
-        <label for="newPlayer" class="form-label">新增球員：</label>
-        <input type="text" id="newPlayer" class="form-control" placeholder="輸入新球員名稱">
-      </div>
-      <button type="button" class="btn btn-primary mb-3" onclick="addPlayer()">新增</button>
     </form>
     <button type="button" class="btn btn-success mb-4" onclick="generateTeams()">隨機分組</button>
     <div id="result" class="border p-3 rounded"></div>
