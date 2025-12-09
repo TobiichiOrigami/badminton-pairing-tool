@@ -21,51 +21,51 @@
       <button type="button" class="btn btn-primary mb-3" onclick="addPlayer()">新增</button>
 
       <div id="player-list" class="mb-3 row row-cols-3 row-cols-sm-3 row-cols-md-6 g-2">
-        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player1"
+        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player" id="player1"
               value="博翰"> 博翰</label>
             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player1-priority"
               value="博翰" > 優先</label></div>
-        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player2"
+        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player" id="player2"
               value="士賢"> 士賢</label>
             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player2-priority"
               value="士賢" > 優先</label></div>
-        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player3"
+        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player" id="player3"
               value="瑞文"> 瑞文</label>
             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player3-priority"
               value="瑞文" > 優先</label></div>
-        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player4"
+        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player" id="player4"
               value="文凱"> 文凱</label>
             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player4-priority"
               value="文凱" > 優先</label></div>
-        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player5"
+        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player" id="player5"
               value="楊偉"> 楊偉</label>
             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player5-priority"
               value="楊偉" > 優先</label></div>
-        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player6"
+        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player" id="player6"
               value="同偉"> 同偉</label>
             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player6-priority"
               value="同偉" > 優先</label></div>
-        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player7"
+        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player" id="player7"
               value="家崴"> 家崴</label>
             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player7-priority"
               value="家崴" > 優先</label></div>
-        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player8"
+        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player" id="player8"
               value="學長"> 學長</label>
              <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player8-priority"
               value="學長" > 優先</label></div>
-        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player9"
+        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player" id="player9"
               value="學姊"> 學姊</label>
              <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player9-priority"
               value="學姊" > 優先</label></div>
-        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player10"
+        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player" id="player10"
               value="國鋒"> 國鋒</label>
              <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player10-priority"
               value="國鋒" > 優先</label></div>
-        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player11"
+        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player" id="player11"
               value="阿呆"> 阿呆</label>
              <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="playe11-priority"
               value="阿呆" > 優先</label></div>
-        <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player12"
+        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player" id="player12"
               value="煥呈"> 煥呈</label>
              <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player12-priority"
               value="煥呈" > 優先</label></div>
@@ -88,9 +88,10 @@
       names.forEach(name => {
         const div = document.createElement('div');
         div.classList.add('col');
+         div.classList.add('card');
 
         const label = document.createElement('label');
-        label.innerHTML = `<input type="checkbox" class="form-check-input" value="${name}"> ${name}`;
+        label.innerHTML = `<input type="checkbox" class="form-check-input player" value="${name}"> ${name}`;
 
         const labelPriority = document.createElement('label');
         labelPriority.innerHTML = `<input type="checkbox" class="form-check-input check-red" value="${name}"> 優先`;
@@ -105,7 +106,7 @@
 
     // 隨機分組邏輯
     function generateTeams() {
-      const checkboxes = document.querySelectorAll('#player-list input[type="checkbox"]:checked');
+      const checkboxes = document.querySelectorAll('#player-list input.player:checked');
       let players = Array.from(checkboxes).map(checkbox => checkbox.value);
 
       shuffleArray(players)
