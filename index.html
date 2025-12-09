@@ -207,6 +207,25 @@
 
       // 顯示分組結果
       displayResults(teams);
+
+      // 自動優先
+      const autoPriority = document.getElementById('autoPriority').checked;
+      if (autoPriority) {
+        if(players.length >= 4) {
+          // 挑出除了最後 4 個球員之外的列表
+          const selectablePlayers = players.filter(p => !teams[teams.length - 1].includes(p));
+
+          removePriority();
+
+          // 將這些球員的優先選項勾起
+          selectablePlayers.forEach(name => {
+            const priorityCheckbox = document.querySelector(`#player-list input.priority[value="${name}"]`);
+            if (priorityCheckbox) {
+              priorityCheckbox.checked = true;
+            }
+          });
+        }
+      }
     }
 
     // 顯示分組結果
