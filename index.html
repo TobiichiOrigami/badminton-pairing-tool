@@ -21,9 +21,12 @@
       <button type="button" class="btn btn-primary mb-3" onclick="addPlayer()">新增</button>
 
       <div class="row g-2">
-        <button type="button" class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#advancedOptions"
+        <button type="button" class="btn btn-outline-primary position-relative" data-bs-toggle="collapse" data-bs-target="#advancedOptions"
           aria-expanded="false" aria-controls="advancedOptions">
           進階選項
+          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="advancedOptionsBadge">
+            2
+          </span>
         </button>
         <div class="collapse" id="advancedOptions">
           <div class="col">
@@ -133,6 +136,10 @@
           checkbox.checked = this.checked;
         });
       });
+
+      // 監聽進階選項變更以更新徽章數字
+      document.getElementById('autoPriority').addEventListener('change', updateAdvancedOptionsBadge);
+      document.getElementById('noBindCheck').addEventListener('change', updateAdvancedOptionsBadge);
 
       // 初始化所有帶有 data-bs-toggle="popover" 屬性的元素
       const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
@@ -265,6 +272,16 @@
     function removeAllPlayers() {
       const playerList = document.getElementById('player-list');
       playerList.innerHTML = '';
+    }
+
+    // 更新進階選項徽章數字
+    function updateAdvancedOptionsBadge() {
+      let count = 0;
+      if (document.getElementById('autoPriority').checked) count++;
+      if (document.getElementById('noBindCheck').checked) count++;
+
+      const badge = document.getElementById('advancedOptionsBadge');
+      badge.textContent = count;
     }
   </script>
   <!-- 引入 Bootstrap 的 JavaScript -->
