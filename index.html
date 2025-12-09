@@ -35,7 +35,7 @@
             優先不必同組</label>
           </div>
           <div class="col">
-            <button type="button" class="btn btn-warning mb-4" onclick=""">移除所有球員卡</button>
+            <button type="button" class="btn btn-warning mb-4" onclick="removeAllPlayers()">移除所有球員卡</button>
           </div>
         </div>
       </div>
@@ -252,6 +252,12 @@
       priorityCheckboxes.forEach(checkbox => {
         checkbox.checked = false;
       });
+    }
+
+    // 移除所有球員卡
+    function removeAllPlayers() {
+      const playerList = document.getElementById('player-list');
+      playerList.innerHTML = '';
     }
   </script>
   <!-- 引入 Bootstrap 的 JavaScript -->
