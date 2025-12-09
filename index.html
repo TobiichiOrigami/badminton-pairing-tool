@@ -7,6 +7,7 @@
   <title>隨機分組對戰</title>
   <!-- 引入 Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
 </head>
 
 <body>
@@ -21,29 +22,53 @@
 
       <div id="player-list" class="mb-3 row row-cols-3 row-cols-sm-3 row-cols-md-6 g-2">
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player1"
-              value="博翰" checked> 博翰</label></div>
+              value="博翰"> 博翰</label>
+            <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player1-priority"
+              value="博翰" > 優先</label></div>
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player2"
-              value="士賢" checked> 士賢</label></div>
+              value="士賢"> 士賢</label>
+            <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player2-priority"
+              value="士賢" > 優先</label></div>
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player3"
-              value="瑞文" checked> 瑞文</label></div>
+              value="瑞文"> 瑞文</label>
+            <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player3-priority"
+              value="瑞文" > 優先</label></div>
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player4"
-              value="文凱" checked> 文凱</label></div>
+              value="文凱"> 文凱</label>
+            <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player4-priority"
+              value="文凱" > 優先</label></div>
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player5"
-              value="楊偉" checked> 楊偉</label></div>
+              value="楊偉"> 楊偉</label>
+            <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player5-priority"
+              value="楊偉" > 優先</label></div>
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player6"
-              value="同偉" checked> 同偉</label></div>
+              value="同偉"> 同偉</label>
+            <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player6-priority"
+              value="同偉" > 優先</label></div>
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player7"
-              value="家崴" checked> 家崴</label></div>
+              value="家崴"> 家崴</label>
+            <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player7-priority"
+              value="家崴" > 優先</label></div>
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player8"
-              value="學長" checked> 學長</label></div>
+              value="學長"> 學長</label>
+             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player8-priority"
+              value="學長" > 優先</label></div>
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player9"
-              value="學姊" checked> 學姊</label></div>
+              value="學姊"> 學姊</label>
+             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player9-priority"
+              value="學姊" > 優先</label></div>
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player10"
-              value="國鋒" checked> 國鋒</label></div>
+              value="國鋒"> 國鋒</label>
+             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player10-priority"
+              value="國鋒" > 優先</label></div>
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player11"
-              value="阿呆" checked> 阿呆</label></div>
+              value="阿呆"> 阿呆</label>
+             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="playe11-priority"
+              value="阿呆" > 優先</label></div>
         <div class="col"><label class="form-check-label"><input type="checkbox" class="form-check-input" id="player12"
-              value="煥呈" checked> 煥呈</label></div>
+              value="煥呈"> 煥呈</label>
+             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="player12-priority"
+              value="煥呈" > 優先</label></div>
       </div>
     </form>
     <button type="button" class="btn btn-success mb-4" onclick="generateTeams()">隨機分組</button>
@@ -63,9 +88,15 @@
       names.forEach(name => {
         const div = document.createElement('div');
         div.classList.add('col');
+
         const label = document.createElement('label');
-        label.innerHTML = `<input type="checkbox" class="form-check-input" value="${name}" checked> ${name}`;
+        label.innerHTML = `<input type="checkbox" class="form-check-input" value="${name}"> ${name}`;
+
+        const labelPriority = document.createElement('label');
+        labelPriority.innerHTML = `<input type="checkbox" class="form-check-input check-red" value="${name}"> 優先`;
+
         div.appendChild(label)
+        div.appendChild(labelPriority)
         playerList.appendChild(div);
       });
 
