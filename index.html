@@ -47,7 +47,7 @@
           <label class="form-check-label"><input type="checkbox" class="form-check-input" id="selectAll""> 全選 </label>
         </div>
         <div class="col">
-          <button type="button" class="btn btn-danger mb-4" onclick=""">移除優先</button>
+          <button type="button" class="btn btn-danger mb-4" onclick="removePriority()">移除優先</button>
         </div>
       </div>
 
@@ -164,7 +164,7 @@
       const checkboxes = document.querySelectorAll('#player-list input.player:checked');
       let players = Array.from(checkboxes).map(checkbox => checkbox.value);
 
-      const priorityCheckboxes = document.querySelectorAll('#player-list input.check-red:checked');
+      const priorityCheckboxes = document.querySelectorAll('#player-list input.priority:checked');
       let priorityPlayers = Array.from(priorityCheckboxes).map(checkbox => checkbox.value);
 
       // 剔除不在選中球員中的優先球員
@@ -217,6 +217,14 @@
         const j = Math.floor(Math.random() * (i + 1));
         [arr[i], arr[j]] = [arr[j], arr[i]];
       }
+    }
+
+    // 移除優先
+    function removePriority() {
+      const priorityCheckboxes = document.querySelectorAll('#player-list input.priority:checked');
+      priorityCheckboxes.forEach(checkbox => {
+        checkbox.checked = false;
+      });
     }
   </script>
   <!-- 引入 Bootstrap 的 JavaScript -->
