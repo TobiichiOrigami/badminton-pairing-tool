@@ -29,13 +29,16 @@
           <div class="col">
             <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="autoPriority" checked>
             自動優先</label>
+            <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="right" data-bs-content="啟用本項，會自動於隨機分組後，勾選最後一場未出戰球員的優先選項">?</span>
           </div>
           <div class="col">
             <label class="form-check-label"><input type="checkbox" class="form-check-input check-green" id="noBindCheck" checked>
             優先不必同組</label>
+            <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="right" data-bs-content="啟用本項，可避免優先球員為兩位時，自動被分為同一組">?</span>
           </div>
           <div class="col">
             <button type="button" class="btn btn-warning mb-4" onclick="removeAllPlayers()">移除所有球員卡</button>
+            <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="right" data-bs-content="點擊本按鈕可疑除所有球員卡，以避免因新增球員過多，使版面雜亂">?</span>
           </div>
         </div>
       </div>
@@ -130,6 +133,10 @@
           checkbox.checked = this.checked;
         });
       });
+
+      // 初始化所有帶有 data-bs-toggle="popover" 屬性的元素
+      const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
+      const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
     });
 
     // 新增球員並生成核取方塊
