@@ -94,19 +94,75 @@ function generateTeams() {
       // 6人：抽3場，每場休2人。剛好 3x2=6，每人輪流休完 1 次。
       restSchedules = [[4, 5], [2, 3], [0, 1]];
     } else if (count === 7) {
-      // 7人：抽3場，每場休3人。
-      // 設計特定的休息索引組合，確保沒有人「連休兩場」。
-      restSchedules = [
-        [4, 5, 6], // 第一場優先者全上，休最後三位
-        [1, 2, 3], // 第二場休中間三位
-        [0, 5, 6]  // 第三場混合休
-      ];
+      // 7人：抽7場，每場休3人，使每位球員皆能公平上場4次，且不連續休息。
+      for (let i = 0; i < 7; i++) {
+        let j = (i + 2) % 7;
+        restSchedules.push([j, (j + 2) % 7, (j + 4) % 7]);
+      }
     }
+
+    // 決定首場對戰的上場與休息位置索引
+    let playSlots = [];
+    let restSlots = [];
+    if (count === 5) {
+      playSlots = [0, 1, 2, 3];
+      restSlots = [4];
+    } else if (count === 6) {
+      playSlots = [0, 1, 2, 3];
+      restSlots = [4, 5];
+    } else if (count === 7) {
+      playSlots = [0, 1, 3, 5];
+      restSlots = [2, 4, 6];
+    }
+
+    // 隨機打亂上場位置，但維持優先同組規則
+    if (noBind) {
+      // 若優先不必同組，直接打亂所有上場位置
+      shuffleArray(playSlots);
+    } else {
+      // 若優先必須同組，維持兩對的配對結構，只隨機打亂對伍順序與內部位置
+      let pair1 = [playSlots[0], playSlots[1]];
+      let pair2 = [playSlots[2], playSlots[3]];
+
+      if (Math.random() < 0.5) pair1 = [pair1[1], pair1[0]];
+      if (Math.random() < 0.5) pair2 = [pair2[1], pair2[0]];
+      if (Math.random() < 0.5) {
+        playSlots = [...pair2, ...pair1];
+      } else {
+        playSlots = [...pair1, ...pair2];
+      }
+    }
+
+    // 打亂休息位置
+    shuffleArray(restSlots);
+
+    // 建立隨機分配後的球員陣列
+    const playersToFilter = new Array(count);
+    let playIndex = 0;
+    let restIndex = 0;
+
+    // 先將優先球員分配至上場位置（若上場位置滿了才分配至休息位置）
+    priorityPlayers.forEach(player => {
+      if (playIndex < playSlots.length) {
+        playersToFilter[playSlots[playIndex++]] = player;
+      } else {
+        playersToFilter[restSlots[restIndex++]] = player;
+      }
+    });
+
+    // 再將一般球員分配至剩餘的上場與休息位置
+    otherPlayers.forEach(player => {
+      if (playIndex < playSlots.length) {
+        playersToFilter[playSlots[playIndex++]] = player;
+      } else {
+        playersToFilter[restSlots[restIndex++]] = player;
+      }
+    });
 
     // 依照定義好的休息時程產出組合
     restSchedules.forEach((restIndices, matchIdx) => {
       // 過濾掉該場次要休息的人，留下 4 位上場球員
-      let match = sortedPlayers.filter((_, idx) => !restIndices.includes(idx));
+      let match = playersToFilter.filter((_, idx) => !restIndices.includes(idx));
 
       /**
        * 優先權特殊規則：
