@@ -128,7 +128,38 @@
     </form>
 
     <button type="button" class="btn btn-success mb-4" onclick="generateTeams()">隨機分組</button>
-    <div id="result" class="border p-3 rounded"></div>
+    <!-- 當前對戰 (高視覺強度) -->
+    <div id="current-match-box" class="card border-primary border-2 shadow-sm text-center mb-4 d-none">
+      <div class="card-header bg-primary text-white fw-bold fs-5" id="current-match-header">
+        當前對戰 (第 1 場)
+      </div>
+      <div class="card-body py-4">
+        <div class="row align-items-center">
+          <div class="col fs-3 fw-bold text-primary" id="team-a-display">
+            -
+          </div>
+          <div class="col-auto fs-4 fw-bold text-muted">
+            VS
+          </div>
+          <div class="col fs-3 fw-bold text-danger" id="team-b-display">
+            -
+          </div>
+        </div>
+        <button type="button" class="btn btn-outline-primary mt-4" id="next-match-btn" onclick="nextMatch()">下一場對戰</button>
+      </div>
+    </div>
+
+    <!-- 待對戰場次 -->
+    <div id="upcoming-matches-box" class="card border-secondary shadow-sm mb-4 d-none">
+      <div class="card-header bg-light fw-bold text-secondary">
+        後續對戰場次
+      </div>
+      <div class="card-body">
+        <div id="upcoming-matches-list" class="list-group list-group-flush">
+          <!-- 待播放的場次會動態渲染到這裡 -->
+        </div>
+      </div>
+    </div>
 
   </div>
 

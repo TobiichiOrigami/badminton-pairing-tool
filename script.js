@@ -1,3 +1,6 @@
+let generatedTeams = [];
+let currentMatchIndex = 0;
+
 document.addEventListener('DOMContentLoaded', function () {
   // 全選/取消全選功能
   document.getElementById('selectAll').addEventListener('change', function () {
@@ -212,8 +215,11 @@ function generateTeams() {
 
   // --- 4. 輸出結果與自動化處理 ---
 
+  generatedTeams = teams;
+  currentMatchIndex = 0;
+
   // 顯示結果到畫面上 (呼叫 displayResults 函數)
-  displayResults(teams);
+  displayResults();
 
   // 檢查是否開啟「自動勾選優先」
   const autoPriority = document.getElementById('autoPriority').checked;
@@ -235,13 +241,66 @@ function generateTeams() {
 }
 
 // 顯示分組結果
-function displayResults(teams) {
-  let resultHtml = '';
-  let groupIndex = 1;
-  for (let i = 0; i < teams.length; i++) {
-    resultHtml += `<p>組合 ${groupIndex++}: ${teams[i].slice(0, 2).join(' 跟 ')} 對 組合 ${groupIndex++}: ${teams[i].slice(2, 4).join(' 跟 ')}</p>`;
+function displayResults() {
+  const currentBox = document.getElementById('current-match-box');
+  const upcomingBox = document.getElementById('upcoming-matches-box');
+
+  if (!generatedTeams || generatedTeams.length === 0) {
+    currentBox.classList.add('d-none');
+    upcomingBox.classList.add('d-none');
+    return;
   }
-  document.getElementById('result').innerHTML = resultHtml;
+
+  // 顯示兩個區塊
+  currentBox.classList.remove('d-none');
+  upcomingBox.classList.remove('d-none');
+
+  // 1. 渲染當前對戰
+  const currentMatch = generatedTeams[currentMatchIndex];
+  document.getElementById('current-match-header').textContent = `當前對戰 (第 ${currentMatchIndex + 1} / ${generatedTeams.length} 場)`;
+  document.getElementById('team-a-display').textContent = currentMatch.slice(0, 2).join(' & ');
+  document.getElementById('team-b-display').textContent = currentMatch.slice(2, 4).join(' & ');
+
+  // 啟用 / 停用下一場對戰按鈕
+  const nextMatchBtn = document.getElementById('next-match-btn');
+  if (currentMatchIndex < generatedTeams.length - 1) {
+    nextMatchBtn.classList.remove('d-none');
+  } else {
+    nextMatchBtn.classList.add('d-none');
+  }
+
+  // 2. 渲染待對戰場次
+  const listContainer = document.getElementById('upcoming-matches-list');
+  listContainer.innerHTML = '';
+
+  let upcomingCount = 0;
+  for (let i = currentMatchIndex + 1; i < generatedTeams.length; i++) {
+    upcomingCount++;
+    const match = generatedTeams[i];
+    const item = document.createElement('div');
+    item.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
+    
+    const matchText = document.createElement('span');
+    matchText.innerHTML = `<strong>第 ${i + 1} 場:</strong> ${match.slice(0, 2).join(' & ')} <span class="text-muted fw-normal">VS</span> ${match.slice(2, 4).join(' & ')}`;
+    item.appendChild(matchText);
+
+    listContainer.appendChild(item);
+  }
+
+  if (upcomingCount === 0) {
+    const item = document.createElement('div');
+    item.className = 'list-group-item text-muted text-center py-3';
+    item.textContent = '已無後續對戰場次';
+    listContainer.appendChild(item);
+  }
+}
+
+// 切換到下一場對戰
+function nextMatch() {
+  if (currentMatchIndex < generatedTeams.length - 1) {
+    currentMatchIndex++;
+    displayResults();
+  }
 }
 
 // 隨機打亂數組
