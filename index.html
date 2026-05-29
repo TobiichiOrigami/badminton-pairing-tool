@@ -12,47 +12,56 @@
 
 <body>
   <div class="container my-4">
-    <h3 class="text-center mb-4">選擇球員進行抽籤</h3>
-    <form id="playersForm">
-      <div class="mb-3">
-        <label for="newPlayer" class="form-label">新增球員：</label>
-        <input type="text" id="newPlayer" class="form-control" placeholder="輸入新球員名稱">
-      </div>
-      <button type="button" class="btn btn-primary mb-3" onclick="addPlayer()">新增</button>
 
-      <div class="row g-2">
-        <button type="button" class="btn btn-outline-primary position-relative" data-bs-toggle="collapse"
-          data-bs-target="#advancedOptions" aria-expanded="false" aria-controls="advancedOptions">
-          進階選項
-          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-            id="advancedOptionsBadge">
-            2
-          </span>
-        </button>
-        <div class="collapse" id="advancedOptions">
-          <div class="col">
-            <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="autoPriority"
-                checked>
-              自動優先</label>
-            <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover"
-              data-bs-placement="right" data-bs-content="啟用本項，會自動於隨機分組後，勾選最後一場未出戰球員的優先選項">?</span>
+    <h3 class="text-center mb-4">
+      羽球對戰抽籤幫手
+      <span class="badge rounded-pill bg-warning" id="advancedOptionsBadge">
+        v1.0
+      </span>
+    </h3>
+
+    <div class="text-center mb-4">
+      <button type="button" class="btn btn-primary btn-lg px-4 shadow-sm" onclick="generateTeams()">隨機分組</button>
+    </div>
+
+    <!-- 當前對戰 (高視覺強度) -->
+    <div id="current-match-box" class="card border-success border-2 shadow-sm text-center mb-4">
+      <div class="card-header bg-success text-white fw-bold fs-5" id="current-match-header">
+        當前對戰 (第 1 場)
+      </div>
+      <div class="card-body py-4">
+        <div class="row align-items-center">
+          <div class="col fs-3 fw-bold text-primary" id="team-a-display">
+            -
           </div>
-          <div class="col">
-            <label class="form-check-label"><input type="checkbox" class="form-check-input check-green" id="noBindCheck"
-                checked>
-              優先不必同組</label>
-            <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover"
-              data-bs-placement="right" data-bs-content="啟用本項，可避免優先球員為兩位時，自動被分為同一組">?</span>
+          <div class="col-auto fs-4 fw-bold text-muted">
+            VS
           </div>
-          <div class="col">
-            <button type="button" class="btn btn-warning mb-4" onclick="removeAllPlayers()">移除所有球員卡</button>
-            <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover"
-              data-bs-placement="right" data-bs-content="點擊本按鈕可移除所有球員卡，以避免因新增球員過多，使版面雜亂">?</span>
+          <div class="col fs-3 fw-bold text-danger" id="team-b-display">
+            -
           </div>
         </div>
+        <button type="button" class="btn btn-outline-warning mt-4" id="next-match-btn"
+          onclick="nextMatch()">下一場對戰</button>
       </div>
+    </div>
 
-      <hr />
+    <!-- 待對戰場次 -->
+    <div id="upcoming-matches-box" class="card border-secondary shadow-sm mb-4">
+      <div class="card-header bg-light fw-bold text-secondary">
+        後續對戰場次
+      </div>
+      <div class="card-body">
+        <div id="upcoming-matches-list" class="list-group list-group-flush">
+          <!-- 待播放的場次會動態渲染到這裡 -->
+        </div>
+      </div>
+    </div>
+
+    <hr />
+
+    <form id="playersForm">
+      <h4 class="text-center mb-4">球員設定</h4>
 
       <div class="row row-cols-3 g-2">
         <div class="col">
@@ -65,22 +74,22 @@
 
       <div class="mb-3 row row-cols-3 row-cols-sm-3 row-cols-md-6 g-2" id="player-list">
         <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player1" value="博翰"> 博翰</label>
+              id="player1" value="博翰" checked> 博翰</label>
           <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
               id="player1-priority" value="博翰"> 優先</label>
         </div>
         <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player2" value="士賢"> 士賢</label>
+              id="player2" value="士賢" checked> 士賢</label>
           <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
               id="player2-priority" value="士賢"> 優先</label>
         </div>
         <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player3" value="瑞文"> 瑞文</label>
+              id="player3" value="瑞文" checked> 瑞文</label>
           <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
               id="player3-priority" value="瑞文"> 優先</label>
         </div>
         <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player4" value="文凱"> 文凱</label>
+              id="player4" value="文凱" checked> 文凱</label>
           <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
               id="player4-priority" value="文凱"> 優先</label>
         </div>
@@ -125,42 +134,46 @@
               id="player12-priority" value="煥呈"> 優先</label>
         </div>
       </div>
+
+      <div class="mb-3">
+        <label for="newPlayer" class="form-label">新增球員：</label>
+        <input type="text" id="newPlayer" class="form-control" placeholder="輸入新球員名稱">
+      </div>
+      <button type="button" class="btn btn-success mb-3" onclick="addPlayer()">新增</button>
+
+      <div class="row g-2">
+        <button type="button" class="btn btn-outline-primary position-relative" data-bs-toggle="collapse"
+          data-bs-target="#advancedOptions" aria-expanded="false" aria-controls="advancedOptions">
+          進階選項
+          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+            id="advancedOptionsBadge">
+            2
+          </span>
+        </button>
+        <div class="collapse" id="advancedOptions">
+          <div class="col">
+            <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="autoPriority"
+                checked>
+              自動優先</label>
+            <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover"
+              data-bs-placement="right" data-bs-content="啟用本項，會自動於隨機分組後，勾選最後一場未出戰球員的優先選項">?</span>
+          </div>
+          <div class="col">
+            <label class="form-check-label"><input type="checkbox" class="form-check-input check-green" id="noBindCheck"
+                checked>
+              優先不必同組</label>
+            <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover"
+              data-bs-placement="right" data-bs-content="啟用本項，可避免優先球員為兩位時，自動被分為同一組">?</span>
+          </div>
+          <div class="col">
+            <button type="button" class="btn btn-warning mb-4" onclick="removeAllPlayers()">移除所有球員卡</button>
+            <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover"
+              data-bs-placement="right" data-bs-content="點擊本按鈕可移除所有球員卡，以避免因新增球員過多，使版面雜亂">?</span>
+          </div>
+        </div>
+      </div>
+
     </form>
-
-    <button type="button" class="btn btn-success mb-4" onclick="generateTeams()">隨機分組</button>
-    <!-- 當前對戰 (高視覺強度) -->
-    <div id="current-match-box" class="card border-primary border-2 shadow-sm text-center mb-4 d-none">
-      <div class="card-header bg-primary text-white fw-bold fs-5" id="current-match-header">
-        當前對戰 (第 1 場)
-      </div>
-      <div class="card-body py-4">
-        <div class="row align-items-center">
-          <div class="col fs-3 fw-bold text-primary" id="team-a-display">
-            -
-          </div>
-          <div class="col-auto fs-4 fw-bold text-muted">
-            VS
-          </div>
-          <div class="col fs-3 fw-bold text-danger" id="team-b-display">
-            -
-          </div>
-        </div>
-        <button type="button" class="btn btn-outline-primary mt-4" id="next-match-btn" onclick="nextMatch()">下一場對戰</button>
-      </div>
-    </div>
-
-    <!-- 待對戰場次 -->
-    <div id="upcoming-matches-box" class="card border-secondary shadow-sm mb-4 d-none">
-      <div class="card-header bg-light fw-bold text-secondary">
-        後續對戰場次
-      </div>
-      <div class="card-body">
-        <div id="upcoming-matches-list" class="list-group list-group-flush">
-          <!-- 待播放的場次會動態渲染到這裡 -->
-        </div>
-      </div>
-    </div>
-
   </div>
 
   <script src="script.js"></script>

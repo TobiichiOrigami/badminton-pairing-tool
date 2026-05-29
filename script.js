@@ -245,16 +245,6 @@ function displayResults() {
   const currentBox = document.getElementById('current-match-box');
   const upcomingBox = document.getElementById('upcoming-matches-box');
 
-  if (!generatedTeams || generatedTeams.length === 0) {
-    currentBox.classList.add('d-none');
-    upcomingBox.classList.add('d-none');
-    return;
-  }
-
-  // 顯示兩個區塊
-  currentBox.classList.remove('d-none');
-  upcomingBox.classList.remove('d-none');
-
   // 1. 渲染當前對戰
   const currentMatch = generatedTeams[currentMatchIndex];
   document.getElementById('current-match-header').textContent = `當前對戰 (第 ${currentMatchIndex + 1} / ${generatedTeams.length} 場)`;
