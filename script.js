@@ -17,6 +17,9 @@ document.addEventListener('DOMContentLoaded', function () {
   // 初始化所有帶有 data-bs-toggle="popover" 屬性的元素
   const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
   const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
+
+  // 初始化臨時交換按鈕事件監聽
+  document.getElementById('swapGroupsBtn').addEventListener('click', handleSwapGroups);
 });
 
 // 新增球員並生成核取方塊
@@ -240,6 +243,45 @@ function generateTeams() {
   }
 }
 
+/**
+ * 臨時交換：將下一場對戰與最後一場的組隊進行互換。
+ */
+/**
+ * 臨時交換：將下一場對戰與列表中的所有後續對戰進行整體前移，再將原「下一場」組隊移動到最後一場的位置。
+ */
+function handleSwapGroups() {
+  // 檢查是否有足夠的後續場次進行交換 (需要至少兩場: Next + Last)
+  if (!generatedTeams || generatedTeams.length < 2) {
+    alert("未能找到足以進行臨時交換的後續對戰場次（需要至少 2 場）。");
+    return;
+  }
+
+  const nextMatchIndex = currentMatchIndex + 1;
+  // 只有在下一場不是最後一場時，才需要執行循環前移和交換
+  if (nextMatchIndex > generatedTeams.length - 1) {
+    alert("無法執行臨時交換，因為本機已是最後一場對戰。");
+    return;
+  }
+
+  // 儲存下一場的組隊資料 (要移動到最末尾的內容)
+  const groupToMove = generatedTeams[nextMatchIndex];
+  
+  // 執行整體前移：將所有索引 i >= nextMatchIndex + 1 的元素，向前移動一個位置。
+  for (let i = nextMatchIndex; i < generatedTeams.length - 1; i++) {
+    generatedTeams[i] = generatedTeams[i + 1];
+  }
+
+  // 將原「下一場」的組隊資料放在列表的最後一場
+  generatedTeams[generatedTeams.length - 1] = groupToMove;
+
+
+  console.log(`已將第 ${nextMatchIndex + 1} 場對戰，移動到所有後續場次的末尾。`);
+
+  // 通知用戶並更新 UI (從下一場開始重新顯示)
+  displayResults();
+}
+
+
 // 顯示分組結果
 function displayResults() {
   const currentBox = document.getElementById('current-match-box');
@@ -257,6 +299,14 @@ function displayResults() {
     nextMatchBtn.classList.remove('d-none');
   } else {
     nextMatchBtn.classList.add('d-none');
+  }
+
+  // 啟用 / 停用臨時交換按鈕：需要至少 3 場總對戰 (Current + Next + Another) 且目前場次不能超過倒數第三位，才能執行循環移動。
+  const swapGroupBtn = document.getElementById('swap-group-btn');
+  if (generatedTeams.length >= 3 && currentMatchIndex < generatedTeams.length - 2) {
+    swapGroupBtn.classList.remove('d-none');
+  } else {
+    swapGroupBtn.classList.add('d-none');
   }
 
   // 2. 渲染待對戰場次

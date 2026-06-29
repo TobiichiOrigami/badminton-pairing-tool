@@ -18,7 +18,7 @@
     <h3 class="text-center mb-4">
       羽球對戰抽籤幫手
       <span class="badge rounded-pill bg-warning" id="advancedOptionsBadge">
-        v1.0
+        v1.1
       </span>
     </h3>
 
@@ -45,8 +45,12 @@
             -
           </div>
         </div>
-        <button type="button" class="btn btn-outline-warning mt-4" id="next-match-btn"
-          onclick="nextMatch()">下一場對戰</button>
+         <div class="d-flex gap-2">
+             <button type="button" class="btn btn-outline-warning mt-4 flex-grow-1" id="next-match-btn"
+               onclick="nextMatch()">下一場對戰</button>
+             <button type="button" class="btn btn-outline-success mt-4 flex-grow-1" id="swap-group-btn"
+               onclick="handleSwapGroups()">下場延後</button>
+         </div>
       </div>
     </div>
 
