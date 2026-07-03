@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>羽球/運動場地臨打費用計算機</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f4f6f9;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 25px;
+        }
+        .section {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .section.highlight {
+            border-left-color: #2ecc71;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #4a5568;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+        .result-box {
+            background-color: #edf2f7;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        .result-item:last-child {
+            margin-bottom: 0;
+        }
+        .important-result {
+            font-size: 18px;
+            font-weight: bold;
+            color: #e74c3c;
+            border-top: 1px dashed #cbd5e0;
+            padding-top: 8px;
+            margin-top: 8px;
+        }
+        .text-green {
+            color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>場地與臨打費用計算機</h2>
+    
+    <!-- 第一區塊：基礎場地與常駐人員設定 -->
+    <div class="section">
+        <label>基礎場地設定</label>
+        <div class="form-group">
+            <label for="hourlyPrice">每小時單價 (元)</label>
+            <input type="number" id="hourlyPrice" value="500" min="0" oninput="calculateExpenses()">
+        </div>
+        <div class="form-group">
+            <label for="duration">單次打球時間 (整小時)</label>
+            <!-- 移除 step="0.5"，強制以 1 小時為單位 -->
+            <input type="number" id="duration" value="2" min="1" step="1" oninput="calculateExpenses()">
+        </div>
+        <div class="form-group">
+            <label for="regularPlayers">常駐打球人數 (人)</label>
+            <input type="number" id="regularPlayers" value="8" min="1" oninput="calculateExpenses()">
+        </div>
+        
+        <div class="result-box">
+            <div class="result-item">
+                <span>當日場地總費用：</span>
+                <strong>NT$ <span id="totalCost">0</span></strong>
+            </div>
+            <div class="result-item">
+                <span>常駐原應付 (無臨打時)：</span>
+                <strong>NT$ <span id="regularOriginalPay">0</span> /人</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- 第二區塊：臨打人員計算 -->
+    <div class="section highlight">
+        <label>臨打人員加入</label>
+        <div class="form-group">
+            <label for="guestPlayers">當天臨打人數 (人)</label>
+            <input type="number" id="guestPlayers" value="2" min="0" oninput="calculateExpenses()">
+        </div>
+        
+        <div class="result-box">
+            <div class="result-item important-result">
+                <span>臨打合理最低收費：</span>
+                <span>NT$ <span id="guestMinCharge">0</span> /人</span>
+            </div>
+            <div class="result-item" style="font-weight: bold;">
+                <span>常駐當天實際應付：</span>
+                <span>NT$ <span id="regularActualPay">0</span> /人</span>
+            </div>
+            <div class="result-item text-green" style="font-weight: bold; border-top: 1px solid #cbd5e0; padding-top: 8px; margin-top: 8px;">
+                <span>常駐每人可退還金額：</span>
+                <span>NT$ <span id="regularRefund">0</span> /人</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function calculateExpenses() {
+        // 取得輸入值並強制將時間與人數轉為整數
+        const hourlyPrice = parseFloat(document.getElementById('hourlyPrice').value) || 0;
+        const duration = parseInt(document.getElementById('duration').value) || 0;
+        const regularPlayers = parseInt(document.getElementById('regularPlayers').value) || 0;
+        const guestPlayers = parseInt(document.getElementById('guestPlayers').value) || 0;
+
+        // 1. 計算當日總費用
+        const totalCost = hourlyPrice * duration;
+        document.getElementById('totalCost').textContent = Math.round(totalCost);
+
+        // 2. 計算無臨打時，常駐原本每人要付的錢
+        let regularOriginalPay = 0;
+        if (regularPlayers > 0) {
+            regularOriginalPay = totalCost / regularPlayers;
+        }
+        document.getElementById('regularOriginalPay').textContent = Math.round(regularOriginalPay);
+
+        // 總人數 (常駐 + 臨打)
+        const totalPlayers = regularPlayers + guestPlayers;
+
+        if (totalPlayers > 0 && regularPlayers > 0) {
+            // 3. 關鍵邏輯：所有人重新平攤後的合理價格（臨打最低收費）
+            const fairShare = Math.round(totalCost / totalPlayers);
+            
+            // 如果有臨打，計算常駐實際應付與退費
+            if (guestPlayers > 0) {
+                document.getElementById('guestMinCharge').textContent = fairShare;
+                document.getElementById('regularActualPay').textContent = fairShare;
+                
+                // 退還金額 = 原本應付 - 重新平攤後的實際應付
+                const refund = Math.round(regularOriginalPay) - fairShare;
+                document.getElementById('regularRefund').textContent = refund > 0 ? refund : 0;
+            } else {
+                // 沒有臨打時的顯示狀態
+                document.getElementById('guestMinCharge').textContent = 0;
+                document.getElementById('regularActualPay').textContent = Math.round(regularOriginalPay);
+                document.getElementById('regularRefund').textContent = 0;
+            }
+        } else {
+            // 防呆重置
+            document.getElementById('guestMinCharge').textContent = 0;
+            document.getElementById('regularActualPay').textContent = 0;
+            document.getElementById('regularRefund').textContent = 0;
+        }
+    }
+
+    // 網頁載入時先執行一次初始計算
+    window.onload = calculateExpenses;
+</script>
+
+</body>
+</html>
