@@ -17,12 +17,30 @@
 
     <h3 class="text-center mb-4">
       羽球對戰抽籤幫手
-      <span class="badge rounded-pill bg-warning" id="advancedOptionsBadge">
-        v1.2
+      <span class="badge rounded-pill bg-warning" id="appVersionBadge">
+        v2.0
       </span>
     </h3>
 
-    <div class="text-center mb-4">
+    <!-- 抽籤場次與隨機分組按鈕區塊 -->
+    <div class="d-flex justify-content-center align-items-center gap-3 mb-4 flex-wrap">
+      <div class="d-flex align-items-center gap-2">
+        <label for="matchCountSelect" class="form-label mb-0 fw-bold text-secondary text-nowrap">
+          <i class="bi bi-clock-history me-1"></i>抽籤總場次：
+        </label>
+        <select id="matchCountSelect" class="form-select form-select-sm" style="width: auto;">
+          <option value="auto" selected>自動推薦</option>
+          <option value="3">3 場</option>
+          <option value="4">4 場</option>
+          <option value="5">5 場</option>
+          <option value="6">6 場</option>
+          <option value="7">7 場</option>
+          <option value="8">8 場</option>
+          <option value="9">9 場</option>
+          <option value="10">10 場</option>
+          <option value="12">12 場</option>
+        </select>
+      </div>
       <button type="button" class="btn btn-primary btn-lg px-4 shadow-sm" onclick="generateTeams()">
         <i class="bi bi-shuffle me-2"></i>隨機分組
       </button>
@@ -30,27 +48,29 @@
 
     <!-- 當前對戰 (高視覺強度) -->
     <div id="current-match-box" class="card border-success border-2 shadow-sm text-center mb-4">
-      <div class="card-header bg-success text-white fw-bold fs-5" id="current-match-header">
-        當前對戰 (第 1 場)
+      <div class="card-header bg-success text-white fw-bold fs-5 d-flex justify-content-between align-items-center flex-wrap gap-2" id="current-match-header">
+        <span id="current-match-title">當前對戰 (第 1 場)</span>
+        <span id="match-power-indicator" class="power-indicator d-none"></span>
       </div>
       <div class="card-body py-4">
         <div class="row align-items-center">
-          <div class="col fs-3 fw-bold text-primary" id="team-a-display">
+          <div class="col fs-4 fw-bold text-primary" id="team-a-display">
             -
           </div>
           <div class="col-auto fs-4 fw-bold text-muted">
             VS
           </div>
-          <div class="col fs-3 fw-bold text-danger" id="team-b-display">
+          <div class="col fs-4 fw-bold text-danger" id="team-b-display">
             -
           </div>
         </div>
-         <div class="d-flex gap-2">
-             <button type="button" class="btn btn-outline-warning mt-4 flex-grow-1" id="next-match-btn"
-               onclick="nextMatch()">下一場對戰</button>
-             <button type="button" class="btn btn-outline-success mt-4 flex-grow-1" id="swap-group-btn"
-               onclick="handleSwapGroups()">本場延後</button>
-         </div>
+        <div class="mt-2" id="current-match-power-details"></div>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-warning mt-4 flex-grow-1" id="next-match-btn"
+            onclick="nextMatch()">下一場對戰</button>
+          <button type="button" class="btn btn-outline-success mt-4 flex-grow-1" id="swap-group-btn"
+            onclick="handleSwapGroups()">本場延後</button>
+        </div>
       </div>
     </div>
 
@@ -69,114 +89,94 @@
     <hr />
 
     <form id="playersForm">
-      <h4 class="text-center mb-4">球員設定</h4>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">球員設定</h4>
+        <span class="text-muted small">修為設定自動儲存於本機</span>
+      </div>
 
-      <div class="row row-cols-3 g-2">
+      <div class="row row-cols-auto g-2 align-items-center mb-3">
         <div class="col">
-          <label class="form-check-label"><input type="checkbox" class="form-check-input" id="selectAll""> 全選 </label>
+          <label class="form-check-label"><input type="checkbox" class="form-check-input" id="selectAll"> 全選</label>
         </div>
-        <div class=" col">
-            <button type="button" class="btn btn-danger mb-4" onclick="removePriority()">移除優先</button>
-        </div>
-      </div>
-
-      <div class="mb-3 row row-cols-3 row-cols-sm-3 row-cols-md-6 g-2" id="player-list">
-        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player1" value="博翰" checked> 博翰</label>
-          <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
-              id="player1-priority" value="博翰"> 優先</label>
-        </div>
-        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player2" value="士賢" checked> 士賢</label>
-          <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
-              id="player2-priority" value="士賢"> 優先</label>
-        </div>
-        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player3" value="瑞文" checked> 瑞文</label>
-          <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
-              id="player3-priority" value="瑞文"> 優先</label>
-        </div>
-        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player4" value="文凱" checked> 文凱</label>
-          <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
-              id="player4-priority" value="文凱"> 優先</label>
-        </div>
-        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player5" value="楊偉"> 楊偉</label>
-          <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
-              id="player5-priority" value="楊偉"> 優先</label>
-        </div>
-        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player6" value="同偉"> 同偉</label>
-          <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
-              id="player6-priority" value="同偉"> 優先</label>
-        </div>
-        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player7" value="Tony"> Tony</label>
-          <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
-              id="player7-priority" value="Tony"> 優先</label>
-        </div>
-        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player8" value="學長"> 學長</label>
-          <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
-              id="player8-priority" value="學長"> 優先</label>
-        </div>
-        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player9" value="學姊"> 學姊</label>
-          <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
-              id="player9-priority" value="學姊"> 優先</label>
-        </div>
-        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player10" value="國鋒"> 國鋒</label>
-          <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
-              id="player10-priority" value="國鋒"> 優先</label>
-        </div>
-        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player11" value="阿呆"> 阿呆</label>
-          <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
-              id="playe11-priority" value="阿呆"> 優先</label>
-        </div>
-        <div class="col card"><label class="form-check-label"><input type="checkbox" class="form-check-input player"
-              id="player12" value="煥呈"> 煥呈</label>
-          <label class="form-check-label"><input type="checkbox" class="form-check-input check-red priority"
-              id="player12-priority" value="煥呈"> 優先</label>
+        <div class="col">
+          <button type="button" class="btn btn-sm btn-outline-danger" onclick="removePriority()">移除全部優先</button>
         </div>
       </div>
 
-      <div class="mb-3">
-        <label for="newPlayer" class="form-label">新增球員：</label>
-        <input type="text" id="newPlayer" class="form-control" placeholder="輸入新球員名稱">
+      <!-- 球員卡片清單 (由 IndexedDB 載入渲染) -->
+      <div class="mb-3 row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-2" id="player-list">
       </div>
-      <button type="button" class="btn btn-success mb-3" onclick="addPlayer()">新增</button>
 
+      <!-- 新增球員 -->
+      <div class="card p-3 mb-3 bg-light">
+        <div class="row g-2 align-items-center">
+          <div class="col-12 col-md-5">
+            <label for="newPlayer" class="form-label small fw-bold mb-1">新增球員名稱 (可用逗號隔開)：</label>
+            <input type="text" id="newPlayer" class="form-control" placeholder="輸入球員名稱，如: 小王, 小李">
+          </div>
+          <div class="col-8 col-md-4">
+            <label for="newPlayerRealm" class="form-label small fw-bold mb-1">初始修為：</label>
+            <select id="newPlayerRealm" class="form-select">
+              <option value="凡人">凡人 (Rank 1)</option>
+              <option value="煉氣">煉氣 (Rank 2)</option>
+              <option value="築基" selected>築基 (Rank 3 - 預設)</option>
+              <option value="結丹">結丹 (Rank 4)</option>
+              <option value="元嬰">元嬰 (Rank 5)</option>
+              <option value="化神">化神 (Rank 6)</option>
+              <option value="煉虛">煉虛 (Rank 7)</option>
+            </select>
+          </div>
+          <div class="col-4 col-md-3 d-flex align-items-end">
+            <button type="button" class="btn btn-success w-100" onclick="addPlayer()">
+              <i class="bi bi-person-plus me-1"></i>新增
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 進階選項 -->
       <div class="row g-2">
         <button type="button" class="btn btn-outline-primary position-relative" data-bs-toggle="collapse"
           data-bs-target="#advancedOptions" aria-expanded="false" aria-controls="advancedOptions">
           進階選項
           <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
             id="advancedOptionsBadge">
-            2
+            3
           </span>
         </button>
-        <div class="collapse" id="advancedOptions">
-          <div class="col">
-            <label class="form-check-label"><input type="checkbox" class="form-check-input check-red" id="autoPriority"
-                checked>
-              自動優先</label>
-            <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover"
-              data-bs-placement="right" data-bs-content="啟用本項，會自動於隨機分組後，勾選最後一場未出戰球員的優先選項">?</span>
-          </div>
-          <div class="col">
-            <label class="form-check-label"><input type="checkbox" class="form-check-input check-green" id="noBindCheck"
-                checked>
-              優先不必同組</label>
-            <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover"
-              data-bs-placement="right" data-bs-content="啟用本項，可避免優先球員為兩位時，自動被分為同一組">?</span>
-          </div>
-          <div class="col">
-            <button type="button" class="btn btn-warning mb-4" onclick="removeAllPlayers()">移除所有球員卡</button>
-            <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover"
-              data-bs-placement="right" data-bs-content="點擊本按鈕可移除所有球員卡，以避免因新增球員過多，使版面雜亂">?</span>
+        <div class="collapse mt-2" id="advancedOptions">
+          <div class="card card-body">
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label class="form-check-label fw-bold">
+                  <input type="checkbox" class="form-check-input check-green" id="balanceByRealm" checked>
+                  修為戰力平衡模式
+                </label>
+                <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover"
+                  data-bs-placement="right" data-bs-content="啟用本項：一避免雙低戰力打雙高戰力；二平均安排高修為球員輪流對戰，提升對戰樂趣。">?</span>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-check-label">
+                  <input type="checkbox" class="form-check-input check-red" id="autoPriority" checked>
+                  自動優先
+                </label>
+                <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover"
+                  data-bs-placement="right" data-bs-content="啟用本項，會自動於隨機分組後，勾選最後一場未出戰球員的優先選項">?</span>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-check-label">
+                  <input type="checkbox" class="form-check-input check-green" id="noBindCheck" checked>
+                  優先不必同組
+                </label>
+                <span class="badge rounded-pill bg-secondary" data-bs-container="body" data-bs-toggle="popover"
+                  data-bs-placement="right" data-bs-content="啟用本項，可避免優先球員為兩位時，自動被分為同一組">?</span>
+              </div>
+              <div class="col-12 d-flex flex-wrap gap-2 pt-2 border-top">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetStatsAction()">重置對戰統計</button>
+                <button type="button" class="btn btn-outline-warning btn-sm" onclick="restoreDefaultPlayersAction()">恢復預設球員與修為</button>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeAllPlayersAction()">移除所有球員卡</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

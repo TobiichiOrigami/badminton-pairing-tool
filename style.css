@@ -18,8 +18,86 @@
 }
 
 .check-green.form-check-input:focus {
-    /* 確保焦點邊框與紅色主題一致 */
+    /* 確保焦點邊框與綠色主題一致 */
     border-color: #198754;
     /* 設定焦點陰影為綠色的透明版本 */
     box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25);
 }
+
+/* 修為等級徽章與下拉選單樣式 */
+.realm-badge {
+  font-size: 0.75rem;
+  padding: 0.25em 0.55em;
+  font-weight: 600;
+  border-radius: 4px;
+  vertical-align: middle;
+  display: inline-block;
+}
+
+.realm-1 { background-color: #6c757d; color: #fff; } /* 凡人 */
+.realm-2 { background-color: #198754; color: #fff; } /* 煉氣 */
+.realm-3 { background-color: #0dcaf0; color: #000; } /* 築基 */
+.realm-4 { background-color: #0d6efd; color: #fff; } /* 結丹 */
+.realm-5 { background-color: #6f42c1; color: #fff; } /* 元嬰 */
+.realm-6 { background-color: #fd7e14; color: #fff; } /* 化神 */
+.realm-7 { background-color: #dc3545; color: #fff; } /* 煉虛 */
+
+.realm-select {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.player-card {
+  transition: all 0.2s ease;
+  border: 1px solid #dee2e6;
+  padding: 0.5rem;
+  position: relative;
+}
+
+.player-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+}
+
+.player-card .player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.player-card .delete-btn {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  color: #adb5bd;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.player-card .delete-btn:hover {
+  color: #dc3545;
+}
+
+.power-indicator {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background-color: #e9ecef;
+  color: #495057;
+  display: inline-block;
+}
+
+.power-indicator.balanced {
+  background-color: #d1e7dd;
+  color: #0f5132;
+}
+
+.power-indicator.slight-diff {
+  background-color: #fff3cd;
+  color: #664d03;
+}
+
