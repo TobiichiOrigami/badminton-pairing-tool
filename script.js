@@ -16,18 +16,18 @@ const REALM_DATA = {
 const DEFAULT_REALM = "築基";
 
 const DEFAULT_PLAYERS = [
-  { name: "博翰", realm: "結丹", isSelected: true, isPriority: true },
-  { name: "士賢", realm: "築基", isSelected: true, isPriority: true },
-  { name: "瑞文", realm: "元嬰", isSelected: true, isPriority: true },
-  { name: "文凱", realm: "煉氣", isSelected: true, isPriority: true },
-  { name: "楊偉", realm: "築基", isSelected: false, isPriority: false },
-  { name: "同偉", realm: "築基", isSelected: false, isPriority: false },
-  { name: "Tony", realm: "結丹", isSelected: false, isPriority: false },
+  { name: "博翰", realm: "元嬰", isSelected: true, isPriority: true },
+  { name: "士賢", realm: "元嬰", isSelected: true, isPriority: true },
+  { name: "瑞文", realm: "結丹", isSelected: true, isPriority: true },
+  { name: "文凱", realm: "元嬰", isSelected: true, isPriority: true },
+  { name: "楊偉", realm: "元嬰", isSelected: false, isPriority: false },
+  { name: "同偉", realm: "化神", isSelected: false, isPriority: false },
+  { name: "Tony", realm: "煉氣", isSelected: false, isPriority: false },
   { name: "學長", realm: "元嬰", isSelected: false, isPriority: false },
   { name: "學姊", realm: "築基", isSelected: false, isPriority: false },
-  { name: "國鋒", realm: "煉氣", isSelected: false, isPriority: false },
-  { name: "阿呆", realm: "凡人", isSelected: false, isPriority: false },
-  { name: "煥呈", realm: "築基", isSelected: false, isPriority: false }
+  { name: "國鋒", realm: "結丹", isSelected: false, isPriority: false },
+  { name: "阿呆", realm: "結丹", isSelected: false, isPriority: false },
+  { name: "煥呈", realm: "元嬰", isSelected: false, isPriority: false }
 ];
 
 // 全域狀態
