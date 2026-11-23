@@ -31,8 +31,10 @@ const DEFAULT_PLAYERS = [
 ];
 
 // 全域狀態
+const MAX_MATCH_HISTORY = 10;
 let generatedTeams = [];
 let currentMatchIndex = 0;
+let lastMatchRecorded = false;
 let cachedPlayers = [];
 let cachedStats = {};
 let sessionStats = {};
@@ -42,7 +44,7 @@ let lastRosterSignature = "";
 // --- 2. IndexedDB 本地儲存模組 (DBHelper) ---
 const DBHelper = {
   dbName: "BadmintonPairingDB",
-  dbVersion: 1,
+  dbVersion: 2,
   db: null,
 
   async init() {
@@ -64,6 +66,9 @@ const DBHelper = {
         }
         if (!db.objectStoreNames.contains("settings")) {
           db.createObjectStore("settings", { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains("matchHistory")) {
+          db.createObjectStore("matchHistory", { keyPath: "id", autoIncrement: true });
         }
       };
 
@@ -200,6 +205,70 @@ const DBHelper = {
       tx.oncomplete = () => resolve(true);
       tx.onerror = () => resolve(false);
     });
+  },
+
+  async getMatchHistory() {
+    if (!this.db) {
+      const local = localStorage.getItem("badminton_match_history");
+      const list = local ? JSON.parse(local) : [];
+      return list.sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, MAX_MATCH_HISTORY);
+    }
+    return new Promise((resolve) => {
+      const tx = this.db.transaction("matchHistory", "readonly");
+      const store = tx.objectStore("matchHistory");
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const list = (req.result || []).sort((a, b) => (b.id || 0) - (a.id || 0));
+        resolve(list.slice(0, MAX_MATCH_HISTORY));
+      };
+      req.onerror = () => resolve([]);
+    });
+  },
+
+  async addMatchHistory(record) {
+    if (!this.db) {
+      const list = await this.getMatchHistory();
+      const maxId = list.reduce((max, item) => Math.max(max, item.id || 0), 0);
+      const entry = { ...record, id: maxId + 1 };
+      const updated = [entry, ...list].slice(0, MAX_MATCH_HISTORY);
+      localStorage.setItem("badminton_match_history", JSON.stringify(updated));
+      return entry;
+    }
+    return new Promise((resolve) => {
+      const tx = this.db.transaction("matchHistory", "readwrite");
+      const store = tx.objectStore("matchHistory");
+      const addReq = store.add(record);
+      let insertedId = null;
+
+      addReq.onsuccess = (e) => {
+        insertedId = e.target.result;
+        const keysReq = store.getAllKeys();
+        keysReq.onsuccess = () => {
+          const keys = (keysReq.result || []).sort((a, b) => a - b);
+          if (keys.length > MAX_MATCH_HISTORY) {
+            const toDelete = keys.slice(0, keys.length - MAX_MATCH_HISTORY);
+            toDelete.forEach(k => store.delete(k));
+          }
+        };
+      };
+
+      tx.oncomplete = () => resolve({ ...record, id: insertedId });
+      tx.onerror = () => resolve(null);
+    });
+  },
+
+  async clearMatchHistory() {
+    if (!this.db) {
+      localStorage.removeItem("badminton_match_history");
+      return true;
+    }
+    return new Promise((resolve) => {
+      const tx = this.db.transaction("matchHistory", "readwrite");
+      const store = tx.objectStore("matchHistory");
+      store.clear();
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
   }
 };
 
@@ -217,6 +286,7 @@ if (typeof document !== 'undefined') {
     cachedStats = await DBHelper.getAllStats();
 
     renderPlayerList();
+    await updateHistoryCountBadge();
 
     // 全選/取消全選
     document.getElementById('selectAll').addEventListener('change', function () {
@@ -1242,6 +1312,7 @@ function generateTeams() {
 
   generatedTeams = teams;
   currentMatchIndex = 0;
+  lastMatchRecorded = false;
 
   recordMatchStatistics(teams, tierInfo);
   displayResults();
@@ -1365,10 +1436,20 @@ function displayResults() {
 
   // 啟用 / 停用下一場對戰按鈕
   const nextMatchBtn = document.getElementById('next-match-btn');
-  if (currentMatchIndex < generatedTeams.length - 1) {
-    nextMatchBtn.classList.remove('d-none');
-  } else {
-    nextMatchBtn.classList.add('d-none');
+  if (nextMatchBtn) {
+    if (currentMatchIndex < generatedTeams.length - 1) {
+      nextMatchBtn.classList.remove('d-none');
+      nextMatchBtn.disabled = false;
+      nextMatchBtn.textContent = '下一場對戰';
+    } else if (!lastMatchRecorded) {
+      nextMatchBtn.classList.remove('d-none');
+      nextMatchBtn.disabled = false;
+      nextMatchBtn.textContent = '完成本場對戰';
+    } else {
+      nextMatchBtn.classList.remove('d-none');
+      nextMatchBtn.disabled = true;
+      nextMatchBtn.textContent = '✓ 本場已紀錄';
+    }
   }
 
   // 啟用 / 停用本場延後按鈕
@@ -1438,11 +1519,130 @@ function handleSwapGroups() {
   updateAutoPriorityFromLastMatch(allSelected, generatedTeams);
 }
 
-// 切換到下一場對戰
-function nextMatch() {
+// 建立單場歷史紀錄資料（保留當下球員名稱與修為）
+function buildMatchHistoryRecord(match) {
+  const buildPlayer = (name) => {
+    const p = cachedPlayers.find(item => item.name === name);
+    const realm = (p && REALM_DATA[p.realm]) ? p.realm : DEFAULT_REALM;
+    return {
+      name,
+      realm,
+      level: REALM_DATA[realm].level
+    };
+  };
+
+  const teamA = [buildPlayer(match[0]), buildPlayer(match[1])];
+  const teamB = [buildPlayer(match[2]), buildPlayer(match[3])];
+  const scoreA = teamA[0].level + teamA[1].level;
+  const scoreB = teamB[0].level + teamB[1].level;
+
+  return {
+    playedAt: Date.now(),
+    teamA,
+    teamB,
+    scoreA,
+    scoreB,
+    diff: Math.abs(scoreA - scoreB)
+  };
+}
+
+function formatHistoryTimestamp(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatHistoryPlayerDisplay(playerObj) {
+  const realm = (playerObj && REALM_DATA[playerObj.realm]) ? playerObj.realm : DEFAULT_REALM;
+  const realmInfo = REALM_DATA[realm];
+  return `<span>${escapeHtml(playerObj.name)} <span class="realm-badge ${realmInfo.class}">${realm}</span></span>`;
+}
+
+async function updateHistoryCountBadge() {
+  if (typeof document === 'undefined') return;
+  const badge = document.getElementById('historyCountBadge');
+  if (!badge) return;
+  const history = await DBHelper.getMatchHistory();
+  badge.textContent = history.length;
+}
+
+async function renderMatchHistoryList() {
+  const container = document.getElementById('match-history-list');
+  if (!container) return;
+
+  const history = await DBHelper.getMatchHistory();
+  container.innerHTML = '';
+
+  if (!history || history.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'list-group-item text-muted text-center py-4';
+    empty.textContent = '目前尚無歷史對戰紀錄（按下「下一場對戰」或「完成本場對戰」後才會紀錄）';
+    container.appendChild(empty);
+    return;
+  }
+
+  history.forEach((record, idx) => {
+    const item = document.createElement('div');
+    item.className = 'list-group-item d-flex justify-content-between align-items-center py-3 flex-wrap gap-2';
+
+    const left = document.createElement('div');
+    left.className = 'd-flex flex-column gap-1';
+
+    const meta = document.createElement('div');
+    meta.className = 'small text-muted';
+    meta.innerHTML = `<span class="badge bg-light text-dark border me-1">#${idx + 1}</span>${formatHistoryTimestamp(record.playedAt)}`;
+
+    const matchLine = document.createElement('div');
+    matchLine.innerHTML = `${formatHistoryPlayerDisplay(record.teamA[0])} & ${formatHistoryPlayerDisplay(record.teamA[1])} <span class="text-muted fw-bold mx-1">VS</span> ${formatHistoryPlayerDisplay(record.teamB[0])} & ${formatHistoryPlayerDisplay(record.teamB[1])}`;
+
+    left.appendChild(meta);
+    left.appendChild(matchLine);
+
+    const diffBadge = document.createElement('span');
+    const mDiff = record.diff ?? Math.abs((record.scoreA || 0) - (record.scoreB || 0));
+    diffBadge.className = `badge ${mDiff === 0 ? 'bg-success' : (mDiff <= 1 ? 'bg-info text-dark' : 'bg-secondary')}`;
+    diffBadge.textContent = `戰力 ${record.scoreA} vs ${record.scoreB}`;
+
+    item.appendChild(left);
+    item.appendChild(diffBadge);
+    container.appendChild(item);
+  });
+}
+
+async function openMatchHistoryModal() {
+  await renderMatchHistoryList();
+  await updateHistoryCountBadge();
+  const modalEl = document.getElementById('matchHistoryModal');
+  if (modalEl && typeof bootstrap !== 'undefined') {
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+  }
+}
+
+async function clearMatchHistoryAction() {
+  if (!confirm("確定要清除所有歷史對戰紀錄嗎？")) return;
+  await DBHelper.clearMatchHistory();
+  await renderMatchHistoryList();
+  await updateHistoryCountBadge();
+}
+
+// 切換到下一場對戰（只有按下本按鈕才會將當前對戰紀錄寫入 IndexedDB 歷史紀錄）
+async function nextMatch() {
+  if (!generatedTeams || generatedTeams.length === 0) return;
+
   if (currentMatchIndex < generatedTeams.length - 1) {
+    const finishedMatch = generatedTeams[currentMatchIndex];
     currentMatchIndex++;
-    displayResults();
+    if (typeof document !== 'undefined') displayResults();
+    await DBHelper.addMatchHistory(buildMatchHistoryRecord(finishedMatch));
+    await updateHistoryCountBadge();
+  } else if (!lastMatchRecorded) {
+    const finishedMatch = generatedTeams[currentMatchIndex];
+    lastMatchRecorded = true;
+    if (typeof document !== 'undefined') displayResults();
+    await DBHelper.addMatchHistory(buildMatchHistoryRecord(finishedMatch));
+    await updateHistoryCountBadge();
   }
 }
 
@@ -1459,11 +1659,19 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     REALM_DATA,
     DEFAULT_PLAYERS,
+    MAX_MATCH_HISTORY,
+    DBHelper,
     setTestState: (players, stats = {}, prevKeys = new Set()) => {
       cachedPlayers = players.map(p => ({ ...p }));
       sessionStats = stats;
       lastDrawGroupKeys = prevKeys;
     },
+    setTestSchedule: (teams, idx = 0, recorded = false) => {
+      generatedTeams = teams.map(m => [...m]);
+      currentMatchIndex = idx;
+      lastMatchRecorded = recorded;
+    },
+    getTestScheduleState: () => ({ generatedTeams, currentMatchIndex, lastMatchRecorded }),
     getSessionStats: () => sessionStats,
     getLastDrawGroupKeys: () => lastDrawGroupKeys,
     resetSessionFairnessState,
@@ -1473,6 +1681,9 @@ if (typeof module !== 'undefined' && module.exports) {
     balanceSingleMatch,
     optimizeSchedule,
     recordMatchStatistics,
+    buildMatchHistoryRecord,
+    nextMatch,
+    handleSwapGroups,
     getGroupKey
   };
 }

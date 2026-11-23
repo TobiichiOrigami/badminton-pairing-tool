@@ -44,6 +44,10 @@
       <button type="button" class="btn btn-primary btn-lg px-4 shadow-sm" onclick="generateTeams()">
         <i class="bi bi-shuffle me-2"></i>隨機分組
       </button>
+      <button type="button" class="btn btn-outline-secondary btn-lg px-3 shadow-sm" id="match-history-btn" onclick="openMatchHistoryModal()">
+        <i class="bi bi-journal-text me-1"></i>歷史紀錄
+        <span class="badge rounded-pill bg-secondary ms-1" id="historyCountBadge">0</span>
+      </button>
     </div>
 
     <!-- 當前對戰 (高視覺強度) -->
@@ -182,6 +186,31 @@
       </div>
 
     </form>
+  </div>
+
+  <!-- 最近 10 場歷史紀錄 Modal -->
+  <div class="modal fade" id="matchHistoryModal" tabindex="-1" aria-labelledby="matchHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="matchHistoryModalLabel">
+            <i class="bi bi-journal-text me-2"></i>最近 10 場歷史對戰紀錄
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+        </div>
+        <div class="modal-body p-0">
+          <div id="match-history-list" class="list-group list-group-flush">
+            <!-- 歷史紀錄動態渲染於此 -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger btn-sm me-auto" onclick="clearMatchHistoryAction()">
+            <i class="bi bi-trash me-1"></i>清除歷史紀錄
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">關閉</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="script.js"></script>
