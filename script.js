@@ -1434,17 +1434,13 @@ function displayResults() {
     powerDetails.innerHTML = `<small class="text-muted">隊伍 A 總修為: <strong>${scoreA}</strong> | 隊伍 B 總修為: <strong>${scoreB}</strong></small>`;
   }
 
-  // 啟用 / 停用下一場對戰按鈕
+  // 啟用 / 停用本場完成按鈕
   const nextMatchBtn = document.getElementById('next-match-btn');
   if (nextMatchBtn) {
-    if (currentMatchIndex < generatedTeams.length - 1) {
+    if (currentMatchIndex < generatedTeams.length - 1 || !lastMatchRecorded) {
       nextMatchBtn.classList.remove('d-none');
       nextMatchBtn.disabled = false;
-      nextMatchBtn.textContent = '下一場對戰';
-    } else if (!lastMatchRecorded) {
-      nextMatchBtn.classList.remove('d-none');
-      nextMatchBtn.disabled = false;
-      nextMatchBtn.textContent = '完成本場對戰';
+      nextMatchBtn.textContent = '本場完成';
     } else {
       nextMatchBtn.classList.remove('d-none');
       nextMatchBtn.disabled = true;
@@ -1577,7 +1573,7 @@ async function renderMatchHistoryList() {
   if (!history || history.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'list-group-item text-muted text-center py-4';
-    empty.textContent = '目前尚無歷史對戰紀錄（按下「下一場對戰」或「完成本場對戰」後才會紀錄）';
+    empty.textContent = '目前尚無歷史對戰紀錄（按下「本場完成」後才會紀錄）';
     container.appendChild(empty);
     return;
   }

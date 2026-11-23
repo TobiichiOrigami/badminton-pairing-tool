@@ -30,6 +30,8 @@
         </label>
         <select id="matchCountSelect" class="form-select form-select-sm" style="width: auto;">
           <option value="auto" selected>自動推薦</option>
+          <option value="1">1 場</option>
+          <option value="2">2 場</option>
           <option value="3">3 場</option>
           <option value="4">4 場</option>
           <option value="5">5 場</option>
@@ -71,7 +73,7 @@
         <div class="mt-2" id="current-match-power-details"></div>
         <div class="d-flex gap-2">
           <button type="button" class="btn btn-outline-warning mt-4 flex-grow-1" id="next-match-btn"
-            onclick="nextMatch()">下一場對戰</button>
+            onclick="nextMatch()">本場完成</button>
           <button type="button" class="btn btn-outline-success mt-4 flex-grow-1" id="swap-group-btn"
             onclick="handleSwapGroups()">本場延後</button>
         </div>
@@ -113,7 +115,7 @@
 
       <!-- 新增球員 -->
       <div class="card p-3 mb-3 bg-light">
-        <div class="row g-2 align-items-center">
+        <div class="row g-2 align-items-end">
           <div class="col-12 col-md-5">
             <label for="newPlayer" class="form-label small fw-bold mb-1">新增球員名稱 (可用逗號隔開)：</label>
             <input type="text" id="newPlayer" class="form-control" placeholder="輸入球員名稱，如: 小王, 小李">
