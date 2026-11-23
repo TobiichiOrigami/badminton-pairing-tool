@@ -35,6 +35,9 @@ let generatedTeams = [];
 let currentMatchIndex = 0;
 let cachedPlayers = [];
 let cachedStats = {};
+let sessionStats = {};
+let lastDrawGroupKeys = new Set();
+let lastRosterSignature = "";
 
 // --- 2. IndexedDB 本地儲存模組 (DBHelper) ---
 const DBHelper = {
@@ -79,7 +82,7 @@ const DBHelper = {
   async getAllPlayers() {
     if (!this.db) {
       const local = localStorage.getItem("badminton_players");
-      return local ? JSON.parse(local) : [...DEFAULT_PLAYERS];
+      return local ? JSON.parse(local) : DEFAULT_PLAYERS.map(p => ({ ...p }));
     }
     return new Promise((resolve) => {
       const tx = this.db.transaction("players", "readonly");
@@ -201,36 +204,38 @@ const DBHelper = {
 };
 
 // --- 3. DOM 初始化與事件綁定 ---
-document.addEventListener('DOMContentLoaded', async function () {
-  await DBHelper.init();
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', async function () {
+    await DBHelper.init();
 
-  let players = await DBHelper.getAllPlayers();
-  if (!players || players.length === 0) {
-    players = [...DEFAULT_PLAYERS];
-    await DBHelper.saveAllPlayers(players);
-  }
-  cachedPlayers = players;
-  cachedStats = await DBHelper.getAllStats();
+    let players = await DBHelper.getAllPlayers();
+    if (!players || players.length === 0) {
+      players = DEFAULT_PLAYERS.map(p => ({ ...p }));
+      await DBHelper.saveAllPlayers(players);
+    }
+    cachedPlayers = players;
+    cachedStats = await DBHelper.getAllStats();
 
-  renderPlayerList();
+    renderPlayerList();
 
-  // 全選/取消全選
-  document.getElementById('selectAll').addEventListener('change', function () {
-    const isChecked = this.checked;
-    cachedPlayers.forEach(p => { p.isSelected = isChecked; });
-    DBHelper.saveAllPlayers(cachedPlayers);
-    const checkboxes = document.querySelectorAll('#player-list input.player');
-    checkboxes.forEach(cb => { cb.checked = isChecked; });
+    // 全選/取消全選
+    document.getElementById('selectAll').addEventListener('change', function () {
+      const isChecked = this.checked;
+      cachedPlayers.forEach(p => { p.isSelected = isChecked; });
+      DBHelper.saveAllPlayers(cachedPlayers);
+      const checkboxes = document.querySelectorAll('#player-list input.player');
+      checkboxes.forEach(cb => { cb.checked = isChecked; });
+    });
+
+    document.getElementById('balanceByRealm').addEventListener('change', updateAdvancedOptionsBadge);
+    document.getElementById('autoPriority').addEventListener('change', updateAdvancedOptionsBadge);
+    document.getElementById('noBindCheck').addEventListener('change', updateAdvancedOptionsBadge);
+    updateAdvancedOptionsBadge();
+
+    const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
+    [...popoverTriggerList].forEach(el => new bootstrap.Popover(el));
   });
-
-  document.getElementById('balanceByRealm').addEventListener('change', updateAdvancedOptionsBadge);
-  document.getElementById('autoPriority').addEventListener('change', updateAdvancedOptionsBadge);
-  document.getElementById('noBindCheck').addEventListener('change', updateAdvancedOptionsBadge);
-  updateAdvancedOptionsBadge();
-
-  const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
-  [...popoverTriggerList].forEach(el => new bootstrap.Popover(el));
-});
+}
 
 // 渲染球員清單
 function renderPlayerList() {
@@ -293,16 +298,54 @@ function onPriorityCheckChange(name, isChecked) {
   }
 }
 
+function resetSessionFairnessState() {
+  sessionStats = {};
+  lastDrawGroupKeys = new Set();
+  lastRosterSignature = "";
+}
+
+function getRosterSignature(selectedNames) {
+  return [...selectedNames]
+    .sort()
+    .map(name => `${name}:${getPlayerLevel(name)}`)
+    .join("|");
+}
+
+function syncPlayerRealmsFromDOM() {
+  if (typeof document === 'undefined') return;
+  let changed = false;
+  cachedPlayers.forEach(p => {
+    const card = document.getElementById(`card-${p.name}`);
+    if (!card) return;
+    const select = card.querySelector('select.realm-select');
+    if (select && REALM_DATA[select.value] && p.realm !== select.value) {
+      p.realm = select.value;
+      changed = true;
+    }
+  });
+  if (changed) {
+    DBHelper.saveAllPlayers(cachedPlayers);
+    resetSessionFairnessState();
+  }
+}
+
 function onPlayerRealmChange(name, newRealm) {
   const p = cachedPlayers.find(item => item.name === name);
   if (p && REALM_DATA[newRealm]) {
     p.realm = newRealm;
     DBHelper.savePlayer(p);
 
+    // 修為異動時立即重置本場次暫存統計，避免舊修為時期的統計殘留影響後續抽籤
+    resetSessionFairnessState();
+
     const badge = document.getElementById(`badge-${name}`);
     if (badge) {
       badge.className = `realm-badge ${REALM_DATA[newRealm].class}`;
       badge.textContent = newRealm;
+    }
+
+    if (generatedTeams && generatedTeams.length > 0) {
+      displayResults();
     }
   }
 }
@@ -340,6 +383,7 @@ async function deletePlayerAction(name) {
   if (!confirm(`確定要刪除球員【${name}】嗎？`)) return;
   cachedPlayers = cachedPlayers.filter(p => p.name !== name);
   await DBHelper.deletePlayer(name);
+  resetSessionFairnessState();
   renderPlayerList();
 }
 
@@ -347,20 +391,23 @@ async function removeAllPlayersAction() {
   if (!confirm("確定要移除所有球員嗎？")) return;
   cachedPlayers = [];
   await DBHelper.clearAllPlayers();
+  resetSessionFairnessState();
   renderPlayerList();
 }
 
 async function restoreDefaultPlayersAction() {
   if (!confirm("確定要恢復預設球員與修為名單嗎？這會覆蓋現有球員資料。")) return;
-  cachedPlayers = JSON.parse(JSON.stringify(DEFAULT_PLAYERS));
+  cachedPlayers = DEFAULT_PLAYERS.map(p => ({ ...p }));
   await DBHelper.clearAllPlayers();
   await DBHelper.saveAllPlayers(cachedPlayers);
+  resetSessionFairnessState();
   renderPlayerList();
 }
 
 async function resetStatsAction() {
   if (!confirm("確定要重置所有球員的歷史對戰統計嗎？")) return;
   cachedStats = {};
+  resetSessionFairnessState();
   await DBHelper.resetAllStats();
   alert("對戰統計已歸零！");
 }
@@ -412,11 +459,111 @@ function getRecommendedMatchCount(selectedPlayerNames) {
 }
 
 /**
- * 【重點一】給定單場 4 位球員，求最平衡的 2 vs 2 分組組合
- * 避免雙高 vs 雙低，最小化兩隊戰力差距
+ * 分析目前出戰球員的修為分層結構
+ * - homogeneous: 全員修為相近 (最大差 <= 1)，無低端分層問題
+ * - tiered: 存在明顯較低修為的少數球員 (與高階組落差 >= 2，且高階組至少 4 人、內部分散 <= 2，低階組內部分散 <= 2)
+ *           → 啟用「低端場輪流參與、平均享受高端局」機制
+ * - complex: 修為分布過於複雜多層，難以單純區分高低端 → 依原則採公平隨機抽選 + 單場 2v2 戰力平衡
  */
-function balanceSingleMatch(fourPlayers, allowPriorityPairing = false, priorityList = []) {
-  if (fourPlayers.length !== 4) return fourPlayers;
+function analyzeRealmTiers(selectedNames) {
+  const N = selectedNames.length;
+  const playersWithLevel = selectedNames.map(name => ({
+    name,
+    level: getPlayerLevel(name)
+  }));
+  playersWithLevel.sort((a, b) => a.level - b.level);
+
+  const minLevel = playersWithLevel[0].level;
+  const maxLevel = playersWithLevel[N - 1].level;
+
+  if (maxLevel - minLevel <= 1) {
+    return {
+      mode: "homogeneous",
+      isClearTiered: false,
+      threshold: minLevel,
+      highNames: [...selectedNames],
+      lowNames: []
+    };
+  }
+
+  // 從高往低尋找最清晰的斷層 splitIndex (1 <= i <= N - 4)
+  // 需滿足：
+  // 1. 斷層落差 >= 2
+  // 2. 高階人數 >= 4 (才組得出純高端局) 且低階人數 < 高階人數 (少數低階搭配多數高階)
+  // 3. 高階組內部最大落差 <= 2，低階組內部最大落差 <= 2 (避免 3~4 層複雜混合)
+  let bestSplit = -1;
+  for (let i = N - 4; i >= 1; i--) {
+    const gap = playersWithLevel[i].level - playersWithLevel[i - 1].level;
+    const highCount = N - i;
+    const lowCount = i;
+    const highSpread = playersWithLevel[N - 1].level - playersWithLevel[i].level;
+    const lowSpread = playersWithLevel[i - 1].level - playersWithLevel[0].level;
+
+    if (gap >= 2 && highCount >= 4 && lowCount < highCount && highSpread <= 2 && lowSpread <= 2) {
+      bestSplit = i;
+      break;
+    }
+  }
+
+  if (bestSplit !== -1) {
+    const threshold = playersWithLevel[bestSplit].level;
+    const lowNames = playersWithLevel.slice(0, bestSplit).map(p => p.name);
+    const highNames = playersWithLevel.slice(bestSplit).map(p => p.name);
+    return {
+      mode: "tiered",
+      isClearTiered: true,
+      threshold,
+      highNames,
+      lowNames
+    };
+  }
+
+  return {
+    mode: "complex",
+    isClearTiered: false,
+    threshold: minLevel,
+    highNames: [...selectedNames],
+    lowNames: []
+  };
+}
+
+function getPairKey(a, b) {
+  return a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`;
+}
+
+function getGroupKey(fourPlayers) {
+  return [...fourPlayers].sort().join("\u0000");
+}
+
+function getSessionPartnerCount(a, b, statsSource) {
+  const s = statsSource && statsSource[a];
+  return (s && s.partnerCounts && s.partnerCounts[b]) || 0;
+}
+
+function getSessionMixedCount(name, statsSource) {
+  const s = statsSource && statsSource[name];
+  return (s && s.mixedMatchCount) || 0;
+}
+
+function getSessionHighCount(name, statsSource) {
+  const s = statsSource && statsSource[name];
+  return (s && s.highMatchCount) || 0;
+}
+
+/**
+ * 給定單場 4 位球員，求最平衡的 2 vs 2 分組組合
+ * - 啟用修為平衡時：優先最小化兩隊戰力差（避免雙高 vs 雙低），同差值下輪替搭檔
+ * - 未啟用修為平衡時：隨機配對並避免連續同搭檔
+ */
+function balanceSingleMatch(
+  fourPlayers,
+  allowPriorityPairing = false,
+  priorityList = [],
+  schedulePartnerCounts = {},
+  enableRealmBalance = true,
+  statsSource = sessionStats
+) {
+  if (fourPlayers.length !== 4) return [...fourPlayers];
 
   const [p0, p1, p2, p3] = fourPlayers;
   const v0 = getPlayerLevel(p0);
@@ -424,45 +571,43 @@ function balanceSingleMatch(fourPlayers, allowPriorityPairing = false, priorityL
   const v2 = getPlayerLevel(p2);
   const v3 = getPlayerLevel(p3);
 
-  // 3 種可能的配對組合
   const pairings = [
     {
       teamA: [p0, p1], teamB: [p2, p3],
-      scoreA: v0 + v1, scoreB: v2 + v3,
-      diff: Math.abs((v0 + v1) - (v2 + v3)),
-      id: 1
+      diff: Math.abs((v0 + v1) - (v2 + v3))
     },
     {
       teamA: [p0, p2], teamB: [p1, p3],
-      scoreA: v0 + v2, scoreB: v1 + v3,
-      diff: Math.abs((v0 + v2) - (v1 + v3)),
-      id: 2
+      diff: Math.abs((v0 + v2) - (v1 + v3))
     },
     {
       teamA: [p0, p3], teamB: [p1, p2],
-      scoreA: v0 + v3, scoreB: v1 + v2,
-      diff: Math.abs((v0 + v3) - (v1 + v2)),
-      id: 3
+      diff: Math.abs((v0 + v3) - (v1 + v2))
     }
   ];
 
-  // 計算每個組合的額外懲罰分數
   pairings.forEach(pair => {
-    let penalty = pair.diff * 100;
+    let penalty = enableRealmBalance ? pair.diff * 1000 : 0;
 
-    const statA0 = cachedStats[pair.teamA[0]];
-    const countA = (statA0 && statA0.partnerCounts && statA0.partnerCounts[pair.teamA[1]]) || 0;
-    const statB0 = cachedStats[pair.teamB[0]];
-    const countB = (statB0 && statB0.partnerCounts && statB0.partnerCounts[pair.teamB[1]]) || 0;
-    penalty += (countA + countB) * 5;
+    // 避免同一次抽籤內重複同搭檔
+    const inSchedA = schedulePartnerCounts[getPairKey(pair.teamA[0], pair.teamA[1])] || 0;
+    const inSchedB = schedulePartnerCounts[getPairKey(pair.teamB[0], pair.teamB[1])] || 0;
+    penalty += (inSchedA + inSchedB) * 50;
 
+    // 避免同場次連續抽籤反覆同搭檔
+    const sessA = getSessionPartnerCount(pair.teamA[0], pair.teamA[1], statsSource);
+    const sessB = getSessionPartnerCount(pair.teamB[0], pair.teamB[1], statsSource);
+    penalty += (sessA + sessB) * 15;
+
+    // 若取消勾選「優先不必同組」，首場 2 位優先球員盡量分在同一隊
     if (!allowPriorityPairing && priorityList.length >= 2) {
       const prioInMatch = fourPlayers.filter(p => priorityList.includes(p));
       if (prioInMatch.length === 2) {
-        const isTogether = (pair.teamA.includes(prioInMatch[0]) && pair.teamA.includes(prioInMatch[1])) ||
-                           (pair.teamB.includes(prioInMatch[0]) && pair.teamB.includes(prioInMatch[1]));
+        const isTogether =
+          (pair.teamA.includes(prioInMatch[0]) && pair.teamA.includes(prioInMatch[1])) ||
+          (pair.teamB.includes(prioInMatch[0]) && pair.teamB.includes(prioInMatch[1]));
         if (isTogether) {
-          penalty -= 15;
+          penalty -= 200;
         }
       }
     }
@@ -472,13 +617,593 @@ function balanceSingleMatch(fourPlayers, allowPriorityPairing = false, priorityL
   });
 
   pairings.sort((a, b) => a.totalPenalty - b.totalPenalty);
-  return [...pairings[0].teamA, ...pairings[0].teamB];
+  const chosen = pairings[0];
+  // 隨機決定隊伍 A/B 顯示左右與隊內先後，避免視覺固定順序
+  const teamA = Math.random() < 0.5 ? [...chosen.teamA] : [chosen.teamA[1], chosen.teamA[0]];
+  const teamB = Math.random() < 0.5 ? [...chosen.teamB] : [chosen.teamB[1], chosen.teamB[0]];
+  return Math.random() < 0.5 ? [...teamA, ...teamB] : [...teamB, ...teamA];
+}
+
+/**
+ * 依加權或隨機方式從候選池挑出 k 名球員
+ */
+function pickFromBucket(bucket, k, scorer = null) {
+  if (k <= 0) return [];
+  if (bucket.length <= k) return [...bucket];
+
+  const copy = [...bucket];
+  shuffleArray(copy);
+  if (!scorer) {
+    return copy.slice(0, k);
+  }
+
+  // 先打亂再依分數排序（加上微量隨機擾動以探索不同最佳解）
+  const scored = copy.map(p => ({ p, score: scorer(p) + Math.random() * 0.75 }));
+  scored.sort((a, b) => a.score - b.score);
+  return scored.slice(0, k).map(item => item.p);
+}
+
+/**
+ * 產生一組滿足休息與公平原則的候選賽程（每場為 4 人名單）
+ * 原則：
+ * 1. 首場必納入所有優先球員（至多 4 人），確保 <= 8 人時跨次抽籤上一場未出賽者必上場
+ * 2. 5~7 人：每場必納入上一場全部休息者（保證 0 連續休息）
+ * 3. 8 人：第 1、2 場各 4 人不重複；第 3 場起每兩場為一輪，強制混合前兩場人員以更換對手
+ * 4. 9 人以上：維持上場次數平衡，第 3 場起允許上上一場休息者再休一場以混合對手，並避免過度連休
+ */
+function buildCandidateSchedule(
+  selectedNames,
+  matchCount,
+  priorityNames,
+  tierInfo,
+  statsSource,
+  guided
+) {
+  const N = selectedNames.length;
+  const lowSet = new Set(tierInfo.lowNames);
+  const playCounts = {};
+  const consecRest = {};
+  const mixedCounts = {};
+  const highCounts = {};
+  selectedNames.forEach(n => {
+    playCounts[n] = 0;
+    consecRest[n] = 0;
+    mixedCounts[n] = 0;
+    highCounts[n] = 0;
+  });
+
+  const matches = [];
+  let lastResting = [];
+
+  for (let m = 0; m < matchCount; m++) {
+    let four = [];
+
+    if (N === 4) {
+      four = [...selectedNames];
+    } else if (m === 0) {
+      // 首場：優先球員必上場
+      if (priorityNames.length >= 4) {
+        if (guided && tierInfo.isClearTiered && priorityNames.length > 4) {
+          const prioLows = priorityNames.filter(p => lowSet.has(p));
+          const prioHighs = priorityNames.filter(p => !lowSet.has(p));
+          const aimPureHigh = prioHighs.length >= 4 && Math.random() < 0.6;
+          if (aimPureHigh) {
+            four = pickFromBucket(prioHighs, 4, h => getSessionHighCount(h, statsSource));
+          } else {
+            const pickLows = prioLows.slice(0, Math.min(prioLows.length, 2));
+            const restPool = priorityNames.filter(p => !pickLows.includes(p));
+            four = [
+              ...pickLows,
+              ...pickFromBucket(restPool, 4 - pickLows.length, h => getSessionMixedCount(h, statsSource))
+            ];
+          }
+        } else {
+          four = pickFromBucket(priorityNames, 4);
+        }
+      } else {
+        four = [...priorityNames];
+        const needed = 4 - four.length;
+        const others = selectedNames.filter(p => !four.includes(p));
+
+        if (guided && tierInfo.isClearTiered) {
+          const hasLowAlready = four.some(p => lowSet.has(p));
+          const otherHighs = others.filter(p => !lowSet.has(p));
+          const otherLows = others.filter(p => lowSet.has(p));
+
+          if (!hasLowAlready && otherHighs.length >= needed && Math.random() < 0.65) {
+            four.push(...pickFromBucket(otherHighs, needed, h => getSessionHighCount(h, statsSource)));
+          } else if (hasLowAlready && otherLows.length > 0 && Math.random() < 0.7) {
+            const addLows = pickFromBucket(otherLows, Math.min(otherLows.length, needed));
+            four.push(...addLows);
+            const rem = 4 - four.length;
+            if (rem > 0) {
+              four.push(...pickFromBucket(otherHighs, rem, h => getSessionMixedCount(h, statsSource)));
+            }
+          } else {
+            four.push(...pickFromBucket(others, needed, p =>
+              lowSet.has(p) ? -0.5 : getSessionMixedCount(p, statsSource)
+            ));
+          }
+        } else {
+          four.push(...pickFromBucket(others, needed));
+        }
+      }
+    } else if (N <= 7) {
+      // 5~7 人：上一場休息的 (N - 4) 人全部必上，確保 0 連續休息
+      const mustPlay = [...lastResting];
+      const needed = 4 - mustPlay.length;
+      const prevPlayed = selectedNames.filter(p => !mustPlay.includes(p));
+
+      // 依 playCounts 分組由少到多挑選，維持上場次數高度平均
+      const minPlay = Math.min(...prevPlayed.map(p => playCounts[p]));
+      const buckets = [];
+      for (let c = minPlay; c <= minPlay + 2; c++) {
+        const b = prevPlayed.filter(p => playCounts[p] === c);
+        if (b.length > 0) buckets.push(b);
+      }
+
+      four = [...mustPlay];
+      for (const bucket of buckets) {
+        const rem = 4 - four.length;
+        if (rem <= 0) break;
+        if (bucket.length <= rem) {
+          four.push(...bucket);
+        } else if (guided && tierInfo.isClearTiered) {
+          const hasLowInFour = four.some(p => lowSet.has(p));
+          const bHighs = bucket.filter(p => !lowSet.has(p));
+          const bLows = bucket.filter(p => lowSet.has(p));
+
+          if (hasLowInFour) {
+            // 已經是低端混編場：若有多名低階球員優先同場，其餘挑混編場次最少的高階球員
+            if (bLows.length > 0 && Math.random() < 0.7) {
+              const addLows = pickFromBucket(bLows, Math.min(bLows.length, rem));
+              four.push(...addLows);
+              const stillRem = 4 - four.length;
+              if (stillRem > 0) {
+                four.push(...pickFromBucket(bHighs, stillRem, h =>
+                  getSessionMixedCount(h, statsSource) + mixedCounts[h]
+                ));
+              }
+            } else {
+              four.push(...pickFromBucket(bucket, rem, p =>
+                lowSet.has(p)
+                  ? 10
+                  : getSessionMixedCount(p, statsSource) + mixedCounts[p]
+              ));
+            }
+          } else {
+            // 目前尚未含低階球員：一定機率組純高端場，一定機率納入低階球員以探索各種輪休型態
+            if (bHighs.length >= rem && Math.random() < 0.65) {
+              four.push(...pickFromBucket(bHighs, rem, h =>
+                getSessionHighCount(h, statsSource) + highCounts[h]
+              ));
+            } else {
+              four.push(...pickFromBucket(bucket, rem, p =>
+                lowSet.has(p)
+                  ? -0.5
+                  : getSessionMixedCount(p, statsSource) + mixedCounts[p]
+              ));
+            }
+          }
+        } else {
+          four.push(...pickFromBucket(bucket, rem));
+        }
+      }
+    } else if (N === 8) {
+      // 8 人專屬分輪混編邏輯
+      if (m % 2 === 1) {
+        // 奇數索引場 (第 2、4、6...場)：與前一場互補，確保每兩場 8 人全上場一次
+        const prev = matches[m - 1];
+        four = selectedNames.filter(p => !prev.includes(p));
+      } else {
+        // 偶數索引場 (第 3、5、7...場)：必須混合前兩場人員，禁止重複前兩場的四人組
+        const prevA = matches[m - 2]; // 上一場休息者
+        const prevB = matches[m - 1]; // 上上一場休息、上一場上場者
+
+        let kFromA = 2;
+        if (tierInfo.isClearTiered) {
+          // 明確高低層級時允許 3+1 或 2+2 混合（例如 7高1低時 3+1 可讓全員高階都至少打一場純高端且僅 1 人連休）
+          if (tierInfo.lowNames.length === 1) {
+            kFromA = Math.random() < 0.75 ? 3 : 2;
+          } else {
+            const choices = [2, 2, 3, 1];
+            kFromA = choices[Math.floor(Math.random() * choices.length)];
+          }
+        }
+        const kFromB = 4 - kFromA;
+
+        if (guided && tierInfo.isClearTiered) {
+          const aHasLow = prevA.some(p => lowSet.has(p));
+          const bHasLow = prevB.some(p => lowSet.has(p));
+
+          if (tierInfo.lowNames.length === 1 && kFromA === 3) {
+            if (aHasLow) {
+              // prevA 含唯一低階：從 prevA 拿 3 名高階 + 從 prevB 拿 1 名（高端場較少或混編場較多者）→ 本場純高端、下場低階帶 prevB 其餘 3 名高階
+              const aHighs = prevA.filter(p => !lowSet.has(p));
+              const bPick = pickFromBucket(prevB, 1, h =>
+                -(getSessionMixedCount(h, statsSource) + mixedCounts[h]) +
+                (getSessionHighCount(h, statsSource) + highCounts[h])
+              );
+              four = [...aHighs, ...bPick];
+            } else if (bHasLow) {
+              // prevB 含唯一低階：從 prevB 拿低階 + 從 prevA 拿 3 名（混編場較少者）→ 本場混編、下場純高端
+              const bLow = prevB.filter(p => lowSet.has(p));
+              const aPick = pickFromBucket(prevA, 3, h =>
+                (getSessionMixedCount(h, statsSource) + mixedCounts[h]) -
+                (getSessionHighCount(h, statsSource) + highCounts[h])
+              );
+              four = [...aPick, ...bLow];
+            } else {
+              four = [...pickFromBucket(prevA, kFromA), ...pickFromBucket(prevB, kFromB)];
+            }
+          } else {
+            // 多名低階或其他切法：傾向讓低階集中同組（放本場或放下一場），並讓高階平均輪替
+            const putLowInCurrent = Math.random() < 0.5;
+            const pickFromGroup = (group, k) => pickFromBucket(group, k, p => {
+              if (lowSet.has(p)) return putLowInCurrent ? -10 : 10;
+              return putLowInCurrent
+                ? (getSessionMixedCount(p, statsSource) + mixedCounts[p])
+                : (getSessionHighCount(p, statsSource) + highCounts[p]);
+            });
+            four = [...pickFromGroup(prevA, kFromA), ...pickFromGroup(prevB, kFromB)];
+          }
+        } else {
+          four = [...pickFromBucket(prevA, kFromA), ...pickFromBucket(prevB, kFromB)];
+        }
+      }
+    } else {
+      // N >= 9：維持上場次數平衡；第 3 場起允許上上一場休息者再休一場以混合對手，但限制最大連休數
+      const maxConsecRest = Math.ceil(N / 4);
+      const minPlay = Math.min(...selectedNames.map(p => playCounts[p]));
+
+      // 必須立即上場者：上場數為最低且已達連休上限
+      const urgent = selectedNames.filter(
+        p => playCounts[p] === minPlay && consecRest[p] >= maxConsecRest
+      );
+
+      if (urgent.length >= 4) {
+        four = pickFromBucket(urgent, 4);
+      } else {
+        four = [...urgent];
+        const remainingPool = selectedNames.filter(p => !four.includes(p));
+
+        // 依 (playCount 升冪, 是否上一場有休息降冪) 分桶，不強制把連休 2 場與連休 1 場鎖死在同一組，讓第 3 場起可自然混編對手
+        const orderedBuckets = [];
+        for (let c = minPlay; c <= minPlay + 2; c++) {
+          const restedInTier = remainingPool.filter(p => playCounts[p] === c && consecRest[p] >= 1);
+          const playedPrevInTier = remainingPool.filter(p => playCounts[p] === c && consecRest[p] === 0);
+          if (restedInTier.length > 0) orderedBuckets.push(restedInTier);
+          if (playedPrevInTier.length > 0) orderedBuckets.push(playedPrevInTier);
+        }
+
+        for (const bucket of orderedBuckets) {
+          const rem = 4 - four.length;
+          if (rem <= 0) break;
+          if (bucket.length <= rem) {
+            four.push(...bucket);
+          } else if (guided && tierInfo.isClearTiered) {
+            const hasLowInFour = four.some(p => lowSet.has(p));
+            const bHighs = bucket.filter(p => !lowSet.has(p));
+            const bLows = bucket.filter(p => lowSet.has(p));
+            if (hasLowInFour) {
+              if (bLows.length > 0 && Math.random() < 0.7) {
+                const addLows = pickFromBucket(bLows, Math.min(bLows.length, rem));
+                four.push(...addLows);
+                const stillRem = 4 - four.length;
+                if (stillRem > 0) {
+                  four.push(...pickFromBucket(bHighs, stillRem, h =>
+                    getSessionMixedCount(h, statsSource) + mixedCounts[h]
+                  ));
+                }
+              } else {
+                four.push(...pickFromBucket(bucket, rem, p =>
+                  lowSet.has(p) ? 10 : (getSessionMixedCount(p, statsSource) + mixedCounts[p])
+                ));
+              }
+            } else if (bHighs.length >= rem && Math.random() < 0.65) {
+              four.push(...pickFromBucket(bHighs, rem, h =>
+                getSessionHighCount(h, statsSource) + highCounts[h]
+              ));
+            } else {
+              four.push(...pickFromBucket(bucket, rem, p =>
+                lowSet.has(p) ? -0.5 : (getSessionMixedCount(p, statsSource) + mixedCounts[p])
+              ));
+            }
+          } else {
+            four.push(...pickFromBucket(bucket, rem));
+          }
+        }
+      }
+    }
+
+    // 更新狀態
+    const fourSet = new Set(four);
+    const resting = selectedNames.filter(p => !fourSet.has(p));
+    const hasLow = tierInfo.isClearTiered && four.some(p => lowSet.has(p));
+
+    selectedNames.forEach(p => {
+      if (fourSet.has(p)) {
+        playCounts[p]++;
+        consecRest[p] = 0;
+        if (tierInfo.isClearTiered && !lowSet.has(p)) {
+          if (hasLow) mixedCounts[p]++;
+          else highCounts[p]++;
+        }
+      } else {
+        consecRest[p]++;
+      }
+    });
+
+    lastResting = resting;
+    matches.push(four);
+  }
+
+  return matches;
+}
+
+/**
+ * 計算數值陣列的變異數總和（離差平方和）
+ */
+function sumSquaredDeviation(values) {
+  if (values.length === 0) return 0;
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  return values.reduce((sum, v) => sum + (v - avg) * (v - avg), 0);
+}
+
+/**
+ * 評估一組完整賽程的總懲罰分數（越低越佳）
+ */
+function evaluateSchedule(
+  balancedMatches,
+  selectedNames,
+  tierInfo,
+  statsSource,
+  prevDrawKeys,
+  enableRealmBalance
+) {
+  const N = selectedNames.length;
+  const lowSet = new Set(tierInfo.lowNames);
+  const playCounts = {};
+  const consecRest = {};
+  selectedNames.forEach(p => {
+    playCounts[p] = 0;
+    consecRest[p] = 0;
+  });
+
+  let penalty = 0;
+  const groupCounts = {};
+  const pairCoOccur = {};
+  const schedPartnerCounts = {};
+  const maxOkRest = N <= 7 ? 1 : (N === 8 ? 2 : Math.ceil(N / 4));
+
+  balancedMatches.forEach((match, m) => {
+    const matchSet = new Set(match);
+    const gKey = getGroupKey(match);
+    groupCounts[gKey] = (groupCounts[gKey] || 0) + 1;
+
+    // 8 人場次嚴禁第 3 場起與前兩場的四人組相同
+    if (N === 8 && m >= 2) {
+      const prev2Key = getGroupKey(balancedMatches[m - 2]);
+      const prev1Key = getGroupKey(balancedMatches[m - 1]);
+      if (gKey === prev2Key || gKey === prev1Key) {
+        penalty += 50000;
+      }
+      if (prevDrawKeys && prevDrawKeys.has(gKey)) {
+        penalty += 120;
+      }
+    }
+
+    // 統計連休與上場次數
+    selectedNames.forEach(p => {
+      if (matchSet.has(p)) {
+        playCounts[p]++;
+        consecRest[p] = 0;
+      } else {
+        consecRest[p]++;
+        if (N <= 7 && consecRest[p] >= 2) {
+          penalty += 100000;
+        } else if (N === 8) {
+          if (consecRest[p] >= 3) penalty += 100000;
+          else if (consecRest[p] === 2) penalty += 30;
+        } else if (N >= 9) {
+          if (consecRest[p] > maxOkRest) penalty += 50000;
+          else if (consecRest[p] === maxOkRest) penalty += 35;
+        }
+      }
+    });
+
+    // 同場 4 人兩兩共場次數
+    for (let i = 0; i < 4; i++) {
+      for (let j = i + 1; j < 4; j++) {
+        const pk = getPairKey(match[i], match[j]);
+        pairCoOccur[pk] = (pairCoOccur[pk] || 0) + 1;
+      }
+    }
+
+    // 隊友重複次數
+    const pkA = getPairKey(match[0], match[1]);
+    const pkB = getPairKey(match[2], match[3]);
+    schedPartnerCounts[pkA] = (schedPartnerCounts[pkA] || 0) + 1;
+    schedPartnerCounts[pkB] = (schedPartnerCounts[pkB] || 0) + 1;
+    penalty += getSessionPartnerCount(match[0], match[1], statsSource) * 10;
+    penalty += getSessionPartnerCount(match[2], match[3], statsSource) * 10;
+  });
+
+  // 1. 上場次數公平性
+  const pVals = Object.values(playCounts);
+  const playSpread = Math.max(...pVals) - Math.min(...pVals);
+  penalty += playSpread > 1 ? playSpread * 100000 : playSpread * 500;
+
+  // 2. 四人組重複懲罰（N >= 5）
+  if (N >= 5) {
+    const dupWeight = N === 5 ? 200 : 800;
+    Object.values(groupCounts).forEach(cnt => {
+      if (cnt > 1) penalty += (cnt - 1) * dupWeight;
+    });
+  }
+
+  // 3. 明確分層模式（原則二）：高階球員平均參與高端局與低端混編局
+  if (enableRealmBalance && tierInfo.isClearTiered) {
+    const highInSched = {};
+    const mixedInSched = {};
+    tierInfo.highNames.forEach(h => {
+      highInSched[h] = 0;
+      mixedInSched[h] = 0;
+    });
+
+    let totalHighMatches = 0;
+    balancedMatches.forEach(match => {
+      const hasLow = match.some(p => lowSet.has(p));
+      if (!hasLow) totalHighMatches++;
+      match.forEach(p => {
+        if (!lowSet.has(p)) {
+          if (hasLow) mixedInSched[p]++;
+          else highInSched[p]++;
+        }
+      });
+    });
+
+    // 若低階球員 >= 2 人，鼓勵低階球員集中於同一混編場，增加純高端場數
+    if (tierInfo.lowNames.length >= 2) {
+      penalty -= totalHighMatches * 1000;
+    }
+
+    const hVals = Object.values(highInSched);
+    const mVals = Object.values(mixedInSched);
+    const highSpread = Math.max(...hVals) - Math.min(...hVals);
+    const mixedSpread = Math.max(...mVals) - Math.min(...mVals);
+
+    penalty += mixedSpread * 5000 + sumSquaredDeviation(mVals) * 400;
+    penalty += highSpread * 5000 + sumSquaredDeviation(hVals) * 400;
+
+    // 只要純高端場次總名額足夠覆蓋每位高階球員，每人至少應打一場純高端局
+    if (totalHighMatches * 4 >= tierInfo.highNames.length) {
+      tierInfo.highNames.forEach(h => {
+        if (highInSched[h] === 0) penalty += 10000;
+      });
+    }
+
+    // 跨次抽籤（同場次累計）平均輪替
+    const cumMixedVals = tierInfo.highNames.map(h => getSessionMixedCount(h, statsSource) + mixedInSched[h]);
+    const cumHighVals = tierInfo.highNames.map(h => getSessionHighCount(h, statsSource) + highInSched[h]);
+    penalty += (Math.max(...cumMixedVals) - Math.min(...cumMixedVals)) * 1500;
+    penalty += sumSquaredDeviation(cumMixedVals) * 150;
+    penalty += (Math.max(...cumHighVals) - Math.min(...cumHighVals)) * 1500;
+    penalty += sumSquaredDeviation(cumHighVals) * 150;
+  }
+
+  // 4. 對手與隊友多樣性（避免小圈圈固定綁在一起）
+  if (N >= 5) {
+    Object.values(pairCoOccur).forEach(cnt => {
+      if (cnt > 1) penalty += (cnt - 1) * (cnt - 1) * 25;
+    });
+  }
+  Object.values(schedPartnerCounts).forEach(cnt => {
+    if (cnt > 1) penalty += (cnt - 1) * 45;
+  });
+
+  // 微量隨機值打破完全同分僵局，確保每次抽籤皆具新鮮感
+  penalty += Math.random() * 0.1;
+  return penalty;
+}
+
+/**
+ * 核心排程最佳化引擎
+ * 支援：
+ * - 修為戰力平衡模式（明確高低分層輪替 / 同層或複雜混合時公平隨機 + 單場 2v2 戰力平衡）
+ * - 純隨機模式（仍嚴格保障休息原則與 8 人以上混編對手）
+ */
+function optimizeSchedule(
+  selectedNames,
+  matchCount,
+  priorityNames,
+  noBind,
+  enableRealmBalance = true,
+  statsSource = sessionStats,
+  prevDrawKeys = lastDrawGroupKeys
+) {
+  const tierInfo = enableRealmBalance
+    ? analyzeRealmTiers(selectedNames)
+    : { mode: "random", isClearTiered: false, threshold: 0, highNames: [...selectedNames], lowNames: [] };
+
+  const totalTrials = tierInfo.isClearTiered ? 600 : 250;
+  let bestSchedule = null;
+  let bestPenalty = Infinity;
+
+  for (let trial = 0; trial < totalTrials; trial++) {
+    const guided = tierInfo.isClearTiered && trial >= Math.floor(totalTrials * 0.35);
+    const rawMatches = buildCandidateSchedule(
+      selectedNames,
+      matchCount,
+      priorityNames,
+      tierInfo,
+      statsSource,
+      guided
+    );
+
+    // 單場 2v2 平衡配對，並追蹤本輪搭檔次數以促進搭檔輪替
+    const schedPartnerCounts = {};
+    const balancedMatches = rawMatches.map((four, m) => {
+      const balanced = balanceSingleMatch(
+        four,
+        noBind || m > 0,
+        priorityNames,
+        schedPartnerCounts,
+        enableRealmBalance,
+        statsSource
+      );
+      const pkA = getPairKey(balanced[0], balanced[1]);
+      const pkB = getPairKey(balanced[2], balanced[3]);
+      schedPartnerCounts[pkA] = (schedPartnerCounts[pkA] || 0) + 1;
+      schedPartnerCounts[pkB] = (schedPartnerCounts[pkB] || 0) + 1;
+      return balanced;
+    });
+
+    const penalty = evaluateSchedule(
+      balancedMatches,
+      selectedNames,
+      tierInfo,
+      statsSource,
+      prevDrawKeys,
+      enableRealmBalance
+    );
+
+    if (penalty < bestPenalty) {
+      bestPenalty = penalty;
+      bestSchedule = balancedMatches;
+    }
+  }
+
+  return { schedule: bestSchedule, tierInfo };
+}
+
+/**
+ * 依據最後一場未上場球員更新「自動優先」勾選
+ */
+function updateAutoPriorityFromLastMatch(allSelected, teams) {
+  if (typeof document === 'undefined') return;
+  const autoPriorityEl = document.getElementById('autoPriority');
+  if (!autoPriorityEl || !autoPriorityEl.checked || !teams || teams.length === 0) return;
+
+  const lastMatch = teams[teams.length - 1];
+  const restingInLastMatch = allSelected.filter(p => !lastMatch.includes(p));
+  removePriority();
+  restingInLastMatch.forEach(name => {
+    const p = cachedPlayers.find(item => item.name === name);
+    if (p) p.isPriority = true;
+    const cb = document.querySelector(`#player-list input.priority[value="${name}"]`);
+    if (cb) cb.checked = true;
+  });
+  DBHelper.saveAllPlayers(cachedPlayers);
 }
 
 /**
  * 隨機分組主函數
  */
 function generateTeams() {
+  // 抽籤前先與 DOM 修為選單同步，避免任何修為暫存不同步
+  syncPlayerRealmsFromDOM();
+
   const selectedCheckboxes = document.querySelectorAll('#player-list input.player:checked');
   let allSelected = Array.from(selectedCheckboxes).map(cb => cb.value);
 
@@ -486,6 +1211,13 @@ function generateTeams() {
     alert("請至少選擇 4 位球員");
     return;
   }
+
+  // 若出戰名單或任一球員修為發生變化，重置本場次輪替統計，避免舊修為殘留影響
+  const currentSignature = getRosterSignature(allSelected);
+  if (lastRosterSignature && lastRosterSignature !== currentSignature) {
+    resetSessionFairnessState();
+  }
+  lastRosterSignature = currentSignature;
 
   const priorityCheckboxes = document.querySelectorAll('#player-list input.priority:checked');
   let priorityPlayers = Array.from(priorityCheckboxes).map(cb => cb.value);
@@ -500,180 +1232,57 @@ function generateTeams() {
     totalMatchTarget = parseInt(matchSelectEl.value, 10);
   }
 
-  let teams = [];
-
-  if (!enableRealmBalance) {
-    let pool = [...allSelected];
-    shuffleArray(pool);
-    priorityPlayers.forEach(p => {
-      pool = pool.filter(x => x !== p);
-      pool.unshift(p);
-    });
-
-    for (let m = 0; m < totalMatchTarget; m++) {
-      if (pool.length < 4) {
-        let supplement = allSelected.filter(p => !pool.includes(p));
-        shuffleArray(supplement);
-        pool.push(...supplement.slice(0, 4 - pool.length));
-      }
-      let chunk = pool.splice(0, 4);
-      shuffleArray(chunk);
-      teams.push(chunk);
-    }
-  } else {
-    teams = optimizeSchedule(allSelected, totalMatchTarget, priorityPlayers, noBind);
-  }
+  const { schedule: teams, tierInfo } = optimizeSchedule(
+    allSelected,
+    totalMatchTarget,
+    priorityPlayers,
+    noBind,
+    enableRealmBalance
+  );
 
   generatedTeams = teams;
   currentMatchIndex = 0;
 
-  recordMatchStatistics(teams);
+  recordMatchStatistics(teams, tierInfo);
   displayResults();
-
-  // 自動優先功能
-  const autoPriority = document.getElementById('autoPriority').checked;
-  if (autoPriority && teams.length > 0) {
-    const lastMatch = teams[teams.length - 1];
-    const restingInLastMatch = allSelected.filter(p => !lastMatch.includes(p));
-    removePriority();
-    restingInLastMatch.forEach(name => {
-      const p = cachedPlayers.find(item => item.name === name);
-      if (p) p.isPriority = true;
-      const cb = document.querySelector(`#player-list input.priority[value="${name}"]`);
-      if (cb) cb.checked = true;
-    });
-    DBHelper.saveAllPlayers(cachedPlayers);
-  }
+  updateAutoPriorityFromLastMatch(allSelected, teams);
 }
 
 /**
- * 核心排程最佳化引擎 (蒙地卡羅多目標搜尋)
+ * 累計本輪所有場次的統計資訊（同時更新本場次記憶體輪替狀態與 IndexedDB）
  */
-function optimizeSchedule(selectedNames, matchCount, priorityNames, noBind) {
-  const N = selectedNames.length;
-  const levels = selectedNames.map(p => getPlayerLevel(p));
-  const minLevel = Math.min(...levels);
-  const maxLevel = Math.max(...levels);
-  const isTiered = (maxLevel - minLevel) >= 2;
+function recordMatchStatistics(allMatches, tierInfo = null) {
+  const lowSet = new Set((tierInfo && tierInfo.isClearTiered) ? tierInfo.lowNames : []);
+  const newGroupKeys = new Set();
 
-  const sortedLevels = [...levels].sort((a, b) => a - b);
-  const medianLevel = sortedLevels[Math.floor(sortedLevels.length / 2)];
-  const highTierThreshold = Math.max(4, medianLevel);
-
-  const highNames = selectedNames.filter(p => getPlayerLevel(p) >= highTierThreshold);
-  const lowNames = selectedNames.filter(p => getPlayerLevel(p) < highTierThreshold);
-
-  let bestSchedule = null;
-  let bestPenalty = Infinity;
-
-  for (let trial = 0; trial < 250; trial++) {
-    let playCounts = {};
-    selectedNames.forEach(n => { playCounts[n] = 0; });
-    let lastResting = [];
-    let matches = [];
-    let totalDiff = 0;
-    let consecutiveRestPenalty = 0;
-
-    for (let m = 0; m < matchCount; m++) {
-      let pool = [...selectedNames];
-
-      pool.sort((a, b) => {
-        if (m === 0) {
-          const aPrio = priorityNames.includes(a) ? 1 : 0;
-          const bPrio = priorityNames.includes(b) ? 1 : 0;
-          if (aPrio !== bPrio) return bPrio - aPrio;
-        }
-        if (playCounts[a] !== playCounts[b]) {
-          return playCounts[a] - playCounts[b];
-        }
-        const aRested = lastResting.includes(a) ? 1 : 0;
-        const bRested = lastResting.includes(b) ? 1 : 0;
-        if (aRested !== bRested) return bRested - aRested;
-        return Math.random() - 0.5;
-      });
-
-      const four = pool.slice(0, 4);
-      const resting = pool.slice(4);
-
-      if (m > 0 && N <= 7) {
-        resting.forEach(r => {
-          if (lastResting.includes(r)) consecutiveRestPenalty += 300;
-        });
-      }
-
-      four.forEach(p => { playCounts[p]++; });
-      lastResting = resting;
-
-      const balanced = balanceSingleMatch(four, noBind || m > 0, priorityNames);
-      const sA = getPlayerLevel(balanced[0]) + getPlayerLevel(balanced[1]);
-      const sB = getPlayerLevel(balanced[2]) + getPlayerLevel(balanced[3]);
-      totalDiff += Math.abs(sA - sB);
-      matches.push(balanced);
-    }
-
-    const pValues = Object.values(playCounts);
-    const minP = Math.min(...pValues);
-    const maxP = Math.max(...pValues);
-    const playVariance = (maxP - minP) * 500;
-
-    let highMatchesCount = {};
-    let mixedMatchesCount = {};
-    highNames.forEach(h => { highMatchesCount[h] = 0; mixedMatchesCount[h] = 0; });
-    let totalHighTierMatches = 0;
-
-    matches.forEach(m => {
-      const hasLow = m.some(p => lowNames.includes(p));
-      if (!hasLow) totalHighTierMatches++;
-      highNames.forEach(h => {
-        if (m.includes(h)) {
-          if (hasLow) mixedMatchesCount[h]++;
-          else highMatchesCount[h]++;
-        }
-      });
-    });
-
-    let tierPenalty = 0;
-    if (isTiered && highNames.length >= 2 && totalHighTierMatches > 0) {
-      highNames.forEach(h => {
-        if (highMatchesCount[h] === 0) tierPenalty += 2500;
-      });
-      const hVals = Object.values(highMatchesCount);
-      const mVals = Object.values(mixedMatchesCount);
-      tierPenalty += (Math.max(...hVals) - Math.min(...hVals)) * 120;
-      tierPenalty += (Math.max(...mVals) - Math.min(...mVals)) * 90;
-    }
-
-    highNames.forEach(h => {
-      const hist = cachedStats[h];
-      if (hist && hist.lowMatchCount > 2) {
-        tierPenalty += mixedMatchesCount[h] * 20;
-      }
-    });
-
-    const totalPenalty = (totalDiff * 15) + playVariance + consecutiveRestPenalty + tierPenalty;
-
-    if (totalPenalty < bestPenalty) {
-      bestPenalty = totalPenalty;
-      bestSchedule = matches;
-    }
-  }
-
-  return bestSchedule;
-}
-
-/**
- * 累計並持久化本輪所有場次的統計資訊至 IndexedDB
- */
-function recordMatchStatistics(allMatches) {
   allMatches.forEach(m => {
+    newGroupKeys.add(getGroupKey(m));
     const teamA = m.slice(0, 2);
     const teamB = m.slice(2, 4);
+    const hasLow = lowSet.size > 0 && m.some(p => lowSet.has(p));
 
     [teamA, teamB].forEach((team, teamIdx) => {
       const oppTeam = teamIdx === 0 ? teamB : teamA;
-      const maxOppLevel = Math.max(...oppTeam.map(p => getPlayerLevel(p)));
 
       team.forEach(pName => {
+        // 1. 更新本場次記憶體輪替統計 (sessionStats)
+        if (!sessionStats[pName]) {
+          sessionStats[pName] = {
+            name: pName,
+            playedCount: 0,
+            mixedMatchCount: 0,
+            highMatchCount: 0,
+            partnerCounts: {}
+          };
+        }
+        const ss = sessionStats[pName];
+        ss.playedCount++;
+        if (lowSet.size > 0 && !lowSet.has(pName)) {
+          if (hasLow) ss.mixedMatchCount++;
+          else ss.highMatchCount++;
+        }
+
+        // 2. 更新持久化統計 (cachedStats)
         if (!cachedStats[pName]) {
           cachedStats[pName] = {
             name: pName,
@@ -687,15 +1296,14 @@ function recordMatchStatistics(allMatches) {
         const s = cachedStats[pName];
         s.playedCount = (s.playedCount || 0) + 1;
 
-        const pLevel = getPlayerLevel(pName);
-        if (pLevel >= 4 && (pLevel - maxOppLevel) >= 2) {
-          s.lowMatchCount = (s.lowMatchCount || 0) + 1;
-        } else if (pLevel >= 4 && maxOppLevel >= 4) {
-          s.highMatchCount = (s.highMatchCount || 0) + 1;
+        if (lowSet.size > 0 && !lowSet.has(pName)) {
+          if (hasLow) s.lowMatchCount = (s.lowMatchCount || 0) + 1;
+          else s.highMatchCount = (s.highMatchCount || 0) + 1;
         }
 
         const partner = team.find(p => p !== pName);
         if (partner) {
+          ss.partnerCounts[partner] = (ss.partnerCounts[partner] || 0) + 1;
           s.partnerCounts[partner] = (s.partnerCounts[partner] || 0) + 1;
         }
 
@@ -706,6 +1314,7 @@ function recordMatchStatistics(allMatches) {
     });
   });
 
+  lastDrawGroupKeys = newGroupKeys;
   DBHelper.saveStats(cachedStats);
 }
 
@@ -823,6 +1432,10 @@ function handleSwapGroups() {
   }
   generatedTeams[generatedTeams.length - 1] = groupToMove;
   displayResults();
+
+  const selectedCheckboxes = document.querySelectorAll('#player-list input.player:checked');
+  const allSelected = Array.from(selectedCheckboxes).map(cb => cb.value);
+  updateAutoPriorityFromLastMatch(allSelected, generatedTeams);
 }
 
 // 切換到下一場對戰
@@ -839,4 +1452,27 @@ function shuffleArray(arr) {
     const j = Math.floor(Math.random() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
+}
+
+// 供 Node.js 測試環境匯出核心演算法
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    REALM_DATA,
+    DEFAULT_PLAYERS,
+    setTestState: (players, stats = {}, prevKeys = new Set()) => {
+      cachedPlayers = players.map(p => ({ ...p }));
+      sessionStats = stats;
+      lastDrawGroupKeys = prevKeys;
+    },
+    getSessionStats: () => sessionStats,
+    getLastDrawGroupKeys: () => lastDrawGroupKeys,
+    resetSessionFairnessState,
+    getPlayerLevel,
+    getRecommendedMatchCount,
+    analyzeRealmTiers,
+    balanceSingleMatch,
+    optimizeSchedule,
+    recordMatchStatistics,
+    getGroupKey
+  };
 }
